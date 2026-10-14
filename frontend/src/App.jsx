@@ -7,6 +7,7 @@ import Monitors from './pages/Monitors';
 import MonitorDetail from './pages/MonitorDetail';
 import Incidents from './pages/Incidents';
 import Settings from './pages/Settings';
+import PublicStatus from './pages/PublicStatus';
 
 function Protected({ children }) {
   const { user, loading } = useAuth();
@@ -23,6 +24,7 @@ function GuestOnly({ children }) {
 export default function App() {
   return (
     <Routes>
+      <Route path="/status/:slug" element={<PublicStatus />} />
       <Route path="/login" element={<GuestOnly><Auth mode="login" /></GuestOnly>} />
       <Route path="/register" element={<GuestOnly><Auth mode="register" /></GuestOnly>} />
       <Route element={<Protected><Layout /></Protected>}>
