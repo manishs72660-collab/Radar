@@ -15,6 +15,14 @@ const monitorSchema = new mongoose.Schema(
       default: 'PENDING',
     },
     failureCount: { type: Number, default: 0 },
+    schedule: {
+      enabled: { type: Boolean, default: false },
+      startHour: { type: Number, default: 9, min: 0, max: 23 },
+      endHour: { type: Number, default: 23, min: 0, max: 23 },
+      timezone: { type: String, default: 'UTC' },
+      prewarmMinutes: { type: Number, default: 5, min: 0, max: 30 },
+      offHoursEveryMinutes: { type: Number, default: 0, min: 0, max: 720 },
+    },
   },
   { timestamps: true }
 );

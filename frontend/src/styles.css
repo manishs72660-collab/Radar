@@ -435,3 +435,20 @@ h1, h2, h3 { letter-spacing: -0.035em; font-weight: 600; }
 .check-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; color: var(--text); font-size: 14.5px; }
 .check-item:hover { background: var(--panel-2); }
 .check-item input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+/* ---------- sleep schedule ---------- */
+.switch { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 600; }
+.switch input { width: 18px; height: 18px; accent-color: var(--accent); }
+.dim { opacity: .55; }
+.hour-strip { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; height: 30px; margin-top: 4px; }
+.hour-strip div { border-radius: 4px; background: var(--line); }
+.hour-strip div.on { background: var(--accent); }
+.hour-strip-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; margin: 6px 0 18px; }
+.sched-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+.sched-grid .field label { display: flex; align-items: center; gap: 6px; }
+.estimate { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 14px 0; }
+.estimate > div { padding: 0 18px; border-left: 1px solid var(--line); }
+.estimate > div:first-child { border-left: none; }
+.estimate b { display: block; font-family: var(--font-display); font-size: 26px; font-weight: 600; }
+.estimate span { color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) { .sched-grid { grid-template-columns: 1fr; } .estimate { grid-template-columns: 1fr; row-gap: 12px; } .estimate > div { border-left: none; } }

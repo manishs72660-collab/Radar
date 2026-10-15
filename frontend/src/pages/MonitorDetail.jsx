@@ -8,6 +8,7 @@ import StatusPill from '../components/StatusPill';
 import UptimeBar from '../components/UptimeBar';
 import TimingBreakdown from '../components/TimingBreakdown';
 import ColdStartCard from '../components/ColdStartCard';
+import SleepSchedule from '../components/SleepSchedule';
 import { IncidentTable } from './Incidents';
 import { ChartTooltip } from './Overview';
 import { formatDateTime, formatMs, formatPct, timeAgo } from '../utils';
@@ -201,6 +202,8 @@ export default function MonitorDetail() {
       <ColdStartCard stats={stats} />
 
       <TimingBreakdown stats={stats} checks={checks} />
+
+      <SleepSchedule monitor={monitor} onSaved={setMonitor} />
 
       <div className="two-col">
         <div className="panel">

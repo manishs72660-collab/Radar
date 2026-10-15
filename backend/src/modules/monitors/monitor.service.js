@@ -9,6 +9,34 @@ const RANGES = {
   '30d': 30 * 24 * 60 * 60 * 1000,
 };
 
+// Bahar se aayi schedule ko saaf aur safe banao
+function sanitizeSchedule(input, current) {
+  const s = { ...(current || {}), ...(input || {}) };
+  const int = (v, min, max, fallback) => {
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+  };
+
+  let timezone = String(s.timezone || 'UTC');
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: timezone });
+  } catch {
+    timezone = 'UTC';
+  }
+
+  let every = int(s.offHoursEveryMinutes, 0, 720, 0);
+  if (every > 0 && every < 15) every = 15;
+
+  return {
+    enabled: !!s.enabled,
+    startHour: int(s.startHour, 0, 23, 9),
+    endHour: int(s.endHour, 0, 23, 23),
+    timezone,
+    prewarmMinutes: int(s.prewarmMinutes, 0, 30, 5),
+    offHoursEveryMinutes: every,
+  };
+}
+
 async function createMonitor(userId, data) {
   const { name, url, method, intervalMinutes, expectedStatus } = data;
   const monitor = await Monitor.create({ userId, name, url, method, intervalMinutes, expectedStatus });
@@ -28,14 +56,27 @@ async function updateMonitor(userId, id, data) {
   const monitor = await Monitor.findOne({ _id: id, userId });
   if (!monitor) return null;
 
+  const wasActive = monitor.isActive;
+  const oldInterval = monitor.intervalMinutes;
+
   const allowed = ['name', 'url', 'intervalMinutes', 'expectedStatus', 'isActive'];
   allowed.forEach((key) => {
     if (data[key] !== undefined) monitor[key] = data[key];
   });
+
+  if (data.schedule !== undefined) {
+    monitor.schedule = sanitizeSchedule(data.schedule, monitor.toObject().schedule);
+  }
+
   await monitor.save();
 
-  if (monitor.isActive) await scheduleMonitor(monitor);
-  else await unscheduleMonitor(monitor);
+  // BullMQ scheduler tabhi badlo jab interval ya pause/resume badla ho.
+  // Sleep schedule badalne pe zaroorat nahi, worker use har job pe database se padhta hai.
+  const needsReschedule = monitor.isActive !== wasActive || monitor.intervalMinutes !== oldInterval;
+  if (needsReschedule) {
+    if (monitor.isActive) await scheduleMonitor(monitor);
+    else await unscheduleMonitor(monitor);
+  }
 
   return monitor;
 }
@@ -91,7 +132,6 @@ async function getStats(userId, id, range = '24h') {
   const avgOf = (list, pick) =>
     list.length ? Math.round(list.reduce((a, c) => a + pick(c), 0) / list.length) : null;
 
-  // Cold start wale checks alag, taaki "normal" breakdown kharab na ho
   const cold = checks.filter((c) => c.isColdStart && c.timings && c.timings.ttfb != null);
   const normal = checks.filter(
     (c) => c.status === 'UP' && !c.isColdStart && c.timings && c.timings.ttfb != null

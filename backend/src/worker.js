@@ -7,6 +7,7 @@ const Monitor = require('./modules/monitors/monitor.model');
 const Check = require('./modules/checks/check.model');
 const { runCheck } = require('./modules/checks/check.engine');
 const { detectColdStart } = require('./modules/checks/coldstart.service');
+const { shouldRunNow } = require('./modules/checks/schedule.service');
 const { openIncident, resolveIncident } = require('./modules/incidents/incident.service');
 const { notifyUser } = require('./modules/alerts/alert.service');
 
@@ -39,7 +40,6 @@ function recoveredMessage(monitor, seconds) {
   ].join('\n');
 }
 
-// Alert fail ho to bhi check ka kaam nahi rukna chahiye
 async function safeNotify(userId, text) {
   try {
     await notifyUser(userId, text);
@@ -63,6 +63,16 @@ async function start() {
       if (!monitor.isActive) {
         console.log('Monitor inactive, skipping');
         return;
+      }
+
+      // Smart keep-alive: sone ke time (schedule ke bahar) check nahi chalana
+      if (monitor.schedule && monitor.schedule.enabled) {
+        const last = await Check.findOne({ monitorId: monitor._id })
+          .sort({ checkedAt: -1 })
+          .select('checkedAt')
+          .lean();
+        const gate = shouldRunNow(monitor, last && last.checkedAt);
+        if (!gate.run) return; // site ko sone do
       }
 
       const result = await runCheck(monitor);
