@@ -1,5 +1,6 @@
 const http = require('http');
 const https = require('https');
+const { assertHostnameAllowed, safeLookup } = require('../security/ssrf');
 
 const TIMEOUT_MS = 30000;
 const MAX_REDIRECTS = 5;
@@ -8,6 +9,13 @@ const MAX_REDIRECTS = 5;
 function requestOnce(urlString, method) {
   return new Promise((resolve, reject) => {
     const url = new URL(urlString);
+
+    try {
+      assertHostnameAllowed(url.hostname); // IP ya localhost jaisa naam ho to yahin ruk jao
+    } catch (err) {
+      return reject(err);
+    }
+
     const lib = url.protocol === 'https:' ? https : http;
 
     const start = process.hrtime.bigint();
@@ -19,6 +27,7 @@ function requestOnce(urlString, method) {
       {
         method,
         agent: false, // har baar nayi connection, taaki DNS/TCP/TLS sab measure ho
+        lookup: safeLookup, // DNS ka jawab private nikle to connect hi nahi hota
         headers: { 'User-Agent': 'RadarBot/1.0', Accept: '*/*' },
       },
       (res) => {
@@ -65,6 +74,7 @@ function buildTimings(m) {
 
 function describeError(err) {
   const code = err.code;
+  if (code === 'ESSRF') return 'Blocked: private or internal address';
   if (code === 'ETIMEDOUT') return 'Timeout (30s)';
   if (code === 'ENOTFOUND') return 'DNS error: domain not found';
   if (code === 'ECONNREFUSED') return 'Connection refused';
@@ -87,7 +97,7 @@ async function runCheck(monitor) {
       const location = response.headers.location;
       const isRedirect = response.statusCode >= 300 && response.statusCode < 400;
       if (isRedirect && location && hop < MAX_REDIRECTS) {
-        current = new URL(location, current).toString();
+        current = new URL(location, current).toString(); // har redirect pe upar wali jaanch dobara chalti hai
         continue;
       }
       break;

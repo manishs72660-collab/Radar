@@ -1,15 +1,7 @@
 const service = require('./monitor.service');
 const { runCheck } = require('../checks/check.engine');
 const Check = require('../checks/check.model');
-
-function isValidUrl(value) {
-  try {
-    const u = new URL(value);
-    return u.protocol === 'http:' || u.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
+const { validateTargetUrl } = require('../security/ssrf');
 
 async function create(req, res) {
   try {
@@ -17,9 +9,9 @@ async function create(req, res) {
     if (!name || !url) {
       return res.status(400).json({ message: 'name and url are required' });
     }
-    if (!isValidUrl(url)) {
-      return res.status(400).json({ message: 'Enter a valid http/https URL' });
-    }
+    const check = await validateTargetUrl(url);
+    if (!check.ok) return res.status(400).json({ message: check.message });
+
     const monitor = await service.createMonitor(req.user.id, req.body);
     res.status(201).json(monitor);
   } catch (err) {
@@ -47,8 +39,9 @@ async function getOne(req, res) {
 
 async function update(req, res) {
   try {
-    if (req.body.url && !isValidUrl(req.body.url)) {
-      return res.status(400).json({ message: 'Enter a valid http/https URL' });
+    if (req.body.url) {
+      const check = await validateTargetUrl(req.body.url);
+      if (!check.ok) return res.status(400).json({ message: check.message });
     }
     const monitor = await service.updateMonitor(req.user.id, req.params.id, req.body);
     if (!monitor) return res.status(404).json({ message: 'Monitor not found' });
