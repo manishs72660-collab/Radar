@@ -5,6 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
+const { apiLimiter } = require('./middleware/rateLimit');
 
 const monitorRoutes = require('./modules/monitors/monitor.routes');
 const authRoutes = require('./modules/auth/auth.routes');
@@ -18,6 +19,12 @@ process.on('unhandledRejection', (reason) => console.error('Unhandled rejection:
 process.on('uncaughtException', (err) => console.error('Uncaught exception:', err));
 
 const app = express();
+
+// Render, Railway jaise hosts ke peeche asli IP X-Forwarded-For mein aata hai.
+// .env mein TRUST_PROXY=1 daalo jab deploy karo, warna sab users ek hi IP lagenge.
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
+}
 
 // Allowed addresses: .env ka CLIENT_URL (comma se alag karke kai bhi de sakte ho)
 const allowed = (process.env.CLIENT_URL || 'http://localhost:5173')
@@ -35,12 +42,14 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
+
+app.use('/api', apiLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/monitors', monitorRoutes);

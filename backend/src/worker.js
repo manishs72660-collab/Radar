@@ -5,9 +5,11 @@ const connection = require('./config/redis');
 const connectDB = require('./config/db');
 const Monitor = require('./modules/monitors/monitor.model');
 const Check = require('./modules/checks/check.model');
+const { checkQueue } = require('./modules/checks/check.queue');
 const { runCheck } = require('./modules/checks/check.engine');
 const { detectColdStart } = require('./modules/checks/coldstart.service');
 const { shouldRunNow } = require('./modules/checks/schedule.service');
+const { runRollup } = require('./modules/checks/rollup.service');
 const { openIncident, resolveIncident } = require('./modules/incidents/incident.service');
 const { notifyUser } = require('./modules/alerts/alert.service');
 
@@ -48,12 +50,23 @@ async function safeNotify(userId, text) {
   }
 }
 
+async function logRollup() {
+  const r = await runRollup();
+  console.log(`[rollup] ${r.hours} hour(s) checked, ${r.rollups} summary card(s) written`);
+}
+
 async function start() {
   await connectDB();
 
   const worker = new Worker(
     'checks',
     async (job) => {
+      // Har ghante ka summary banana. Alag Worker nahi, isi mein, taaki Redis ke commands na badhein.
+      if (job.name === 'rollup-hourly') {
+        await logRollup();
+        return;
+      }
+
       const monitor = await Monitor.findById(job.data.monitorId);
 
       if (!monitor) {
@@ -117,6 +130,16 @@ async function start() {
   worker.on('failed', (job, err) => {
     console.error(`Job failed: ${err.message}`);
   });
+
+  // Har ghante ke 5 minute baad (UTC): pichla poora ghanta ab band ho chuka hai
+  await checkQueue.upsertJobScheduler(
+    'rollup-hourly',
+    { pattern: '5 * * * *' },
+    { name: 'rollup-hourly', data: {}, opts: { removeOnComplete: true, removeOnFail: 20 } }
+  );
+
+  // Worker abhi chalu hua hai: jo ghante chhoot gaye ho wo bhi bhar do (peeche se, server ko rokta nahi)
+  logRollup().catch((err) => console.error('Rollup failed:', err.message));
 
   console.log('Worker started, waiting for jobs...');
 }
