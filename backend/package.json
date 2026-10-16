@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "nodemon src/index.js",
     "worker": "nodemon src/worker.js",
-    "rollup": "node src/scripts/rollup.js"
+    "rollup": "node src/scripts/rollup.js",
+    "cleanup:dry": "node src/scripts/cleanup-dry-run.js",
+    "seed": "node src/scripts/seed.js",
+"seed:clean": "node src/scripts/seed-clean.js"
   },
   "keywords": [],
   "author": "",

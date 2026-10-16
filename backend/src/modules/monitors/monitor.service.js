@@ -1,5 +1,6 @@
 const Monitor = require('./monitor.model');
 const Check = require('../checks/check.model');
+const Rollup = require('../checks/rollup.model');
 const { scheduleMonitor, unscheduleMonitor } = require('../checks/check.queue');
 
 const RANGES = {
@@ -86,6 +87,7 @@ async function deleteMonitor(userId, id) {
   if (monitor) {
     await unscheduleMonitor(monitor);
     await Check.deleteMany({ monitorId: monitor._id });
+    await Rollup.deleteMany({ monitorId: monitor._id });
   }
   return monitor;
 }

@@ -75,11 +75,18 @@ function createRollupService({ Check, Rollup, now = () => new Date() }) {
   }
 
   // Poore ho chuke ghante hi rollup hote hain. Abhi chal raha ghanta kabhi nahi.
-  async function runRollup({ hours } = {}) {
+  //   (kuch nahi)  -> jo ghante baaki hain (pichhla rollup se ab tak)
+  //   hours: N     -> pichle N ghante dobara
+  //   all: true    -> sabse purane raw check se ab tak (backfill)
+  async function runRollup({ hours, all, onProgress } = {}) {
     const end = hourStart(now());
     let start;
 
-    if (hours) {
+    if (all) {
+      const first = await Check.findOne().sort({ checkedAt: 1 }).select('checkedAt').lean();
+      if (!first) return { from: end, to: end, hours: 0, rollups: 0 };
+      start = hourStart(first.checkedAt);
+    } else if (hours) {
       start = new Date(end.getTime() - hours * HOUR);
     } else {
       const last = await Rollup.findOne().sort({ hour: -1 }).select('hour').lean();
@@ -89,11 +96,13 @@ function createRollupService({ Check, Rollup, now = () => new Date() }) {
       if (start < earliest) start = earliest;
     }
 
+    const totalHours = Math.max(0, Math.ceil((end.getTime() - start.getTime()) / HOUR));
     let hoursDone = 0;
     let rollups = 0;
     for (let h = start.getTime(); h < end.getTime(); h += HOUR) {
       rollups += await rollupHourForAll(new Date(h));
       hoursDone += 1;
+      if (onProgress && hoursDone % 24 === 0) onProgress({ done: hoursDone, total: totalHours });
     }
 
     return { from: start, to: end, hours: hoursDone, rollups };
