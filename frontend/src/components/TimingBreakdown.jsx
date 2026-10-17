@@ -43,7 +43,8 @@ function Tip({ active, payload, label }) {
   );
 }
 
-export default function TimingBreakdown({ stats, checks }) {
+// timeline: [{ t, dns, tcp, tls, ttfb, download }], purane se naya
+export default function TimingBreakdown({ stats, timeline = [] }) {
   const t = stats?.timings;
 
   if (!t) {
@@ -58,16 +59,19 @@ export default function TimingBreakdown({ stats, checks }) {
   const total = STEPS.reduce((a, s) => a + (t[s.key] || 0), 0) || 1;
   const verdict = diagnose(t);
 
-  const data = checks
-    .filter((c) => c.timings && c.timings.ttfb != null)
-    .map((c) => ({ t: new Date(c.checkedAt).getTime(), ...c.timings }));
+  const span = timeline.length > 1 ? timeline[timeline.length - 1].t - timeline[0].t : 0;
+  const longRange = span > 36 * 60 * 60 * 1000;
+  const tick = (v) =>
+    longRange
+      ? new Date(v).toLocaleDateString([], { day: 'numeric', month: 'short' })
+      : new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   return (
     <div className="panel" style={{ marginTop: 20 }}>
       <div className="panel-head">
         <div>
           <h2>Where the time goes</h2>
-          <p className="panel-sub">Average of one check, split into its steps</p>
+          <p className="panel-sub">Average of one normal check, split into its steps (cold starts left out)</p>
         </div>
       </div>
 
@@ -91,12 +95,12 @@ export default function TimingBreakdown({ stats, checks }) {
 
       {verdict && <div className={`verdict ${verdict.tone}`}>{verdict.text}</div>}
 
-      {data.length > 1 && (
+      {timeline.length > 1 && (
         <div className="chart-box" style={{ height: 220, marginTop: 18 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+            <AreaChart data={timeline} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
               <CartesianGrid stroke="#26304a" strokeDasharray="3 6" vertical={false} />
-              <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={(v) => new Date(v).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} minTickGap={40} />
+              <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={tick} stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} minTickGap={40} />
               <YAxis stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}s` : `${v}ms`)} />
               <Tooltip content={<Tip />} />
               {STEPS.map((s) => (

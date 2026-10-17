@@ -1,26 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Play, Pause, Trash2, RefreshCw } from 'lucide-react';
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import api, { errorMessage } from '../api';
 import { useToast } from '../toast';
 import StatusPill from '../components/StatusPill';
 import UptimeBar from '../components/UptimeBar';
+import ResponseChart from '../components/ResponseChart';
+import Heatmap from '../components/Heatmap';
+import Skeleton from '../components/Skeleton';
 import TimingBreakdown from '../components/TimingBreakdown';
 import ColdStartCard from '../components/ColdStartCard';
 import SleepSchedule from '../components/SleepSchedule';
 import { IncidentTable } from './Incidents';
-import { ChartTooltip } from './Overview';
-import { formatDateTime, formatMs, formatPct, timeAgo } from '../utils';
+import { formatMs, formatPct, timeAgo } from '../utils';
 
 const RANGES = ['1h', '24h', '7d', '30d'];
-
-function axisLabel(range, t) {
-  const d = new Date(t);
-  return range === '7d' || range === '30d'
-    ? d.toLocaleDateString([], { day: 'numeric', month: 'short' })
-    : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
+const isSeriesRange = (r) => r === '7d' || r === '30d';
 
 export default function MonitorDetail() {
   const { id } = useParams();
@@ -29,26 +24,40 @@ export default function MonitorDetail() {
 
   const [monitor, setMonitor] = useState(null);
   const [range, setRange] = useState('24h');
-  const [checks, setChecks] = useState([]);
-  const [stats, setStats] = useState(null);
+  const [chart, setChart] = useState(null); // { range, kind, checks | points, bucketMinutes }
+  const [stats, setStats] = useState(null); // { range, data }
+  const [recent, setRecent] = useState([]);
   const [incidents, setIncidents] = useState([]);
+  const [heatmap, setHeatmap] = useState(null);
   const [checking, setChecking] = useState(false);
   const [missing, setMissing] = useState(false);
+  const latest = useRef(0); // purana jawab naye jawab ko na dabaye
 
   const load = useCallback(async () => {
+    const mine = ++latest.current;
     try {
-      const [m, c, s, i] = await Promise.all([
+      const series = isSeriesRange(range);
+      const rawRange = series ? '24h' : range;
+      const [m, s, i, raw, ser] = await Promise.all([
         api.get(`/monitors/${id}`),
-        api.get(`/monitors/${id}/checks`, { params: { range } }),
         api.get(`/monitors/${id}/stats`, { params: { range } }),
         api.get('/dashboard/incidents', { params: { monitorId: id } }),
+        api.get(`/monitors/${id}/checks`, { params: { range: rawRange } }),
+        series ? api.get(`/monitors/${id}/series`, { params: { range } }) : Promise.resolve(null),
       ]);
+      if (mine !== latest.current) return;
+
       setMonitor(m.data);
-      setChecks(c.data);
-      setStats(s.data);
+      setStats({ range, data: s.data });
       setIncidents(i.data);
+      setRecent(raw.data);
+      setChart(
+        series
+          ? { range, kind: 'series', points: ser.data.points, bucketMinutes: ser.data.bucketMinutes }
+          : { range, kind: 'raw', checks: raw.data }
+      );
     } catch (err) {
-      if (err?.response?.status === 404) setMissing(true);
+      if (mine === latest.current && err?.response?.status === 404) setMissing(true);
     }
   }, [id, range]);
 
@@ -57,6 +66,22 @@ export default function MonitorDetail() {
     const t = setInterval(load, 15000);
     return () => clearInterval(t);
   }, [load]);
+
+  // Heatmap kam badalta hai, isliye 5 minute mein ek baar
+  useEffect(() => {
+    let alive = true;
+    const fetchHeatmap = () =>
+      api
+        .get(`/monitors/${id}/heatmap`)
+        .then((r) => alive && setHeatmap(r.data))
+        .catch(() => {});
+    fetchHeatmap();
+    const t = setInterval(fetchHeatmap, 5 * 60 * 1000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [id]);
 
   async function checkNow() {
     setChecking(true);
@@ -101,28 +126,37 @@ export default function MonitorDetail() {
       </div>
     );
   }
-  if (!monitor) return <div className="center-screen">Loading...</div>;
+  if (!monitor) {
+    return (
+      <>
+        <Skeleton height={34} width={260} style={{ marginBottom: 12 }} />
+        <Skeleton height={18} width={380} style={{ marginBottom: 28 }} />
+        <Skeleton height={420} radius={16} />
+      </>
+    );
+  }
 
-  const data = checks.map((c) => ({
-    t: new Date(c.checkedAt).getTime(),
-    ms: c.responseTime,
-    status: c.status,
-    cold: !!c.isColdStart,
-  }));
-  const history = checks.slice(-60).map((c) => c.status);
-  const recent = [...checks].reverse().slice(0, 12);
+  // Range badalte hi purana graph nahi, skeleton dikhao
+  const chartReady = chart && chart.range === range;
+  const statsReady = stats && stats.range === range;
+  const s = statsReady ? stats.data : null;
+  const series = isSeriesRange(range);
 
-  // DOWN = laal dot, cold start = purple dot
-  const dotRenderer = (props) => {
-    const { cx, cy, payload, index } = props;
-    if (payload.status === 'DOWN') {
-      return <circle key={index} cx={cx} cy={cy} r={5} fill="#ff6b6b" stroke="#0e1320" strokeWidth={2} />;
-    }
-    if (payload.cold) {
-      return <circle key={index} cx={cx} cy={cy} r={6} fill="#b794f6" stroke="#0e1320" strokeWidth={2} />;
-    }
-    return <circle key={index} r={0} cx={cx} cy={cy} />;
-  };
+  const history = recent.slice(-60).map((c) => c.status);
+  const recentRows = [...recent].reverse().slice(0, 12);
+
+  // "Where the time goes" ke chart ke liye: normal checks ka breakdown
+  let timeline = [];
+  if (chartReady) {
+    timeline =
+      chart.kind === 'series'
+        ? chart.points.filter((p) => p.timings).map((p) => ({ t: p.t, ...p.timings }))
+        : chart.checks
+            .filter((c) => c.status === 'UP' && !c.isColdStart && c.timings && c.timings.ttfb != null)
+            .map((c) => ({ t: new Date(c.checkedAt).getTime(), ...c.timings }));
+  }
+
+  const enough = chartReady && (chart.kind === 'series' ? chart.points.length >= 2 : chart.checks.length >= 2);
 
   return (
     <>
@@ -155,8 +189,7 @@ export default function MonitorDetail() {
           <div>
             <h2>Response time</h2>
             <p className="panel-sub">
-              <span className="legend-dot" style={{ background: '#ff6b6b' }} /> failed check
-              <span className="legend-dot" style={{ background: '#b794f6', marginLeft: 14 }} /> cold start
+              {series ? 'Each point is the average for a few hours, the shaded band is fastest to slowest' : 'Each point is one check'}
             </p>
           </div>
           <div className="tabs" role="tablist" aria-label="Time range">
@@ -166,32 +199,44 @@ export default function MonitorDetail() {
           </div>
         </div>
 
-        {stats && (
+        {statsReady ? (
           <div className="stat-strip">
-            <div><b className={stats.uptime != null && stats.uptime < 99 ? 'is-down' : 'is-up'}>{formatPct(stats.uptime)}</b><span>Uptime</span></div>
-            <div><b>{formatMs(stats.avg)}</b><span>Average</span></div>
-            <div><b>{formatMs(stats.p95)}</b><span>Slowest 5% (p95)</span></div>
-            <div><b>{formatMs(stats.min)}</b><span>Fastest</span></div>
-            <div><b>{formatMs(stats.max)}</b><span>Slowest</span></div>
+            <div><b className={s.uptime != null && s.uptime < 99 ? 'is-down' : 'is-up'}>{formatPct(s.uptime)}</b><span>Uptime</span></div>
+            <div><b>{formatMs(s.avg)}</b><span>Average</span></div>
+            {s.p95 != null ? (
+              <div><b>{formatMs(s.p95)}</b><span>Slowest 5% (p95)</span></div>
+            ) : (
+              <div><b>{s.total}</b><span>Checks</span></div>
+            )}
+            <div><b>{formatMs(s.min)}</b><span>Fastest</span></div>
+            <div><b>{formatMs(s.max)}</b><span>Slowest</span></div>
+          </div>
+        ) : (
+          <div className="stat-strip">
+            {[0, 1, 2, 3, 4].map((n) => <div key={n}><Skeleton height={30} width={90} style={{ marginBottom: 8 }} /><Skeleton height={14} width={60} /></div>)}
           </div>
         )}
 
-        <div className="chart-box">
-          {data.length < 2 ? (
-            <div className="empty">Not enough checks in this range yet. Use “Check now” to add one.</div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                <CartesianGrid stroke="#26304a" strokeDasharray="3 6" vertical={false} />
-                <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={(t) => axisLabel(range, t)} stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} minTickGap={40} />
-                <YAxis stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}s` : `${v}ms`)} />
-                {stats?.avg != null && <ReferenceLine y={stats.avg} stroke="#8c97b5" strokeDasharray="4 6" />}
-                <Tooltip content={<ChartTooltip labelFormatter={(t) => formatDateTime(t)} />} />
-                <Line type="monotone" dataKey="ms" stroke="#f5b042" strokeWidth={2.2} dot={dotRenderer} activeDot={{ r: 5 }} isAnimationActive={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          )}
-        </div>
+        {!chartReady ? (
+          <Skeleton height={300} radius={12} />
+        ) : !enough ? (
+          <div className="chart-box">
+            <div className="empty">
+              {series
+                ? 'No history in this range yet. Hourly summaries build up as checks run, so a new monitor needs a few hours.'
+                : 'Not enough checks in this range yet. Use “Check now” to add one.'}
+            </div>
+          </div>
+        ) : (
+          <ResponseChart
+            kind={chart.kind}
+            range={range}
+            checks={chart.checks}
+            points={chart.points}
+            bucketMinutes={chart.bucketMinutes}
+            avg={s ? s.avg : null}
+          />
+        )}
 
         <div style={{ marginTop: 18 }}>
           <p className="panel-sub" style={{ marginBottom: 8 }}>Last {history.length} checks</p>
@@ -199,23 +244,33 @@ export default function MonitorDetail() {
         </div>
       </div>
 
-      <ColdStartCard stats={stats} />
+      <div className="panel" style={{ marginTop: 20 }}>
+        <div className="panel-head">
+          <div>
+            <h2>Last 90 days</h2>
+            <p className="panel-sub">One square per day (UTC). Hover for details.</p>
+          </div>
+        </div>
+        {heatmap ? <Heatmap days={heatmap} /> : <Skeleton height={130} radius={12} />}
+      </div>
 
-      <TimingBreakdown stats={stats} checks={checks} />
+      <ColdStartCard stats={s} />
+
+      <TimingBreakdown stats={s} timeline={timeline} />
 
       <SleepSchedule monitor={monitor} onSaved={setMonitor} />
 
       <div className="two-col">
         <div className="panel">
           <h2 style={{ marginBottom: 12 }}>Recent checks</h2>
-          {recent.length === 0 ? (
+          {recentRows.length === 0 ? (
             <div className="empty">No checks yet.</div>
           ) : (
             <div className="table-wrap">
               <table className="table">
                 <thead><tr><th>Result</th><th>Code</th><th>Time</th><th>When</th></tr></thead>
                 <tbody>
-                  {recent.map((c, i) => (
+                  {recentRows.map((c, i) => (
                     <tr key={i}>
                       <td>
                         {c.isColdStart ? (
