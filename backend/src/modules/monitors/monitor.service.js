@@ -1,11 +1,19 @@
 const Monitor = require('./monitor.model');
 const Check = require('../checks/check.model');
 const Rollup = require('../checks/rollup.model');
+const series = require('../checks/series.service');
 const { scheduleMonitor, unscheduleMonitor } = require('../checks/check.queue');
 
-const RANGES = {
+// Stats: 1h aur 24h kachche checks se, 7d aur 30d ghante ke summary cards se.
+const RAW_RANGES = {
   '1h': 60 * 60 * 1000,
   '24h': 24 * 60 * 60 * 1000,
+};
+const CARD_RANGES = ['7d', '30d'];
+
+// /checks purani UI ke liye 7d aur 30d bhi deta rehta hai (Part C2 ke baad UI /series use karegi)
+const CHECK_RANGES = {
+  ...RAW_RANGES,
   '7d': 7 * 24 * 60 * 60 * 1000,
   '30d': 30 * 24 * 60 * 60 * 1000,
 };
@@ -97,7 +105,7 @@ async function getChecks(userId, id, range = '24h') {
   const monitor = await Monitor.findOne({ _id: id, userId });
   if (!monitor) return null;
 
-  const since = new Date(Date.now() - (RANGES[range] || RANGES['24h']));
+  const since = new Date(Date.now() - (CHECK_RANGES[range] || CHECK_RANGES['24h']));
   const checks = await Check.find({ monitorId: id, checkedAt: { $gte: since } })
     .sort({ checkedAt: 1 })
     .limit(5000)
@@ -114,48 +122,29 @@ async function getStats(userId, id, range = '24h') {
   const monitor = await Monitor.findOne({ _id: id, userId });
   if (!monitor) return null;
 
-  const since = new Date(Date.now() - (RANGES[range] || RANGES['24h']));
+  if (CARD_RANGES.includes(range)) return series.getStats(id, range);
+
+  const since = new Date(Date.now() - (RAW_RANGES[range] || RAW_RANGES['24h']));
   const checks = await Check.find({ monitorId: id, checkedAt: { $gte: since } })
     .limit(5000)
     .select('status responseTime timings isColdStart')
     .lean();
 
-  if (checks.length === 0) {
-    return {
-      total: 0, uptime: null, avg: null, min: null, max: null, p95: null,
-      timings: null, coldStarts: 0, coldAvgTtfb: null, normalTtfb: null,
-    };
-  }
+  return series.computeRawStats(checks);
+}
 
-  const up = checks.filter((c) => c.status === 'UP').length;
-  const times = checks.map((c) => c.responseTime).sort((a, b) => a - b);
-  const sum = times.reduce((a, b) => a + b, 0);
+// 7d / 30d ke graph ke points (summary cards se)
+async function getSeries(userId, id, range = '7d') {
+  const monitor = await Monitor.findOne({ _id: id, userId });
+  if (!monitor) return null;
+  return series.getSeries(id, range);
+}
 
-  const avgOf = (list, pick) =>
-    list.length ? Math.round(list.reduce((a, c) => a + pick(c), 0) / list.length) : null;
-
-  const cold = checks.filter((c) => c.isColdStart && c.timings && c.timings.ttfb != null);
-  const normal = checks.filter(
-    (c) => c.status === 'UP' && !c.isColdStart && c.timings && c.timings.ttfb != null
-  );
-
-  const keys = ['dns', 'tcp', 'tls', 'ttfb', 'download'];
-  const timings = normal.length
-    ? Object.fromEntries(keys.map((k) => [k, avgOf(normal, (c) => c.timings[k] || 0)]))
-    : null;
-
-  return {
-    total: checks.length,
-    timings,
-    coldStarts: cold.length,
-    coldAvgTtfb: avgOf(cold, (c) => c.timings.ttfb),
-    normalTtfb: avgOf(normal, (c) => c.timings.ttfb),
-    uptime: Math.round((up / checks.length) * 10000) / 100,
-    avg: Math.round(sum / times.length),
-    min: times[0],
-    max: times[times.length - 1],
-    p95: times[Math.min(times.length - 1, Math.floor(times.length * 0.95))],
-  };
+// 90 din ka din-ba-din uptime
+async function getHeatmap(userId, id, days = 90) {
+  const monitor = await Monitor.findOne({ _id: id, userId });
+  if (!monitor) return null;
+  return series.getHeatmap(id, days);
 }
 
 module.exports = {
@@ -166,4 +155,6 @@ module.exports = {
   deleteMonitor,
   getChecks,
   getStats,
+  getSeries,
+  getHeatmap,
 };

@@ -13,6 +13,8 @@ router.get('/:id', controller.getOne);
 router.patch('/:id', controller.update);
 router.get('/:id/checks', controller.checks);
 router.get('/:id/stats', controller.stats);
+router.get('/:id/series', controller.series);
+router.get('/:id/heatmap', controller.heatmap);
 router.post('/:id/check', checkNowLimiter, controller.checkNow);
 router.delete('/:id', controller.remove);
 

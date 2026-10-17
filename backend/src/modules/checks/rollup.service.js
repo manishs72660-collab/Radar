@@ -13,20 +13,22 @@ function buildRollup(checks) {
   const sum = (list, pick) => list.reduce((a, c) => a + (Number(pick(c)) || 0), 0);
   const hasTtfb = (c) => c.timings && c.timings.ttfb != null;
 
-  const times = checks.map((c) => c.responseTime).sort((a, b) => a - b);
+  // Speed ke numbers sirf kamyab (UP) checks se. Down hue check ka 30 second ka timeout speed nahi hai.
+  const upChecks = checks.filter((c) => c.status === 'UP');
+  const times = upChecks.map((c) => c.responseTime).sort((a, b) => a - b);
   const cold = checks.filter((c) => c.isColdStart && hasTtfb(c));
   const normal = checks.filter((c) => c.status === 'UP' && !c.isColdStart && hasTtfb(c));
 
   return {
     total: checks.length,
-    up: checks.filter((c) => c.status === 'UP').length,
+    up: upChecks.length,
     down: checks.filter((c) => c.status === 'DOWN').length,
     coldStarts: cold.length,
 
-    rtSum: sum(checks, (c) => c.responseTime),
-    rtMin: times[0],
-    rtMax: times[times.length - 1],
-    p95: times[Math.min(times.length - 1, Math.floor(times.length * 0.95))],
+    rtSum: sum(upChecks, (c) => c.responseTime),
+    rtMin: times.length ? times[0] : null,
+    rtMax: times.length ? times[times.length - 1] : null,
+    p95: times.length ? times[Math.min(times.length - 1, Math.floor(times.length * 0.95))] : null,
 
     normalCount: normal.length,
     dnsSum: sum(normal, (c) => c.timings.dns),

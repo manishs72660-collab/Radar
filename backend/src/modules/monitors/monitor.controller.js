@@ -96,4 +96,28 @@ async function stats(req, res) {
   }
 }
 
-module.exports = { create, list, getOne, update, remove, checkNow, checks, stats };
+async function series(req, res) {
+  try {
+    const range = req.query.range || '7d';
+    if (!['7d', '30d'].includes(range)) {
+      return res.status(400).json({ message: 'range must be 7d or 30d' });
+    }
+    const data = await service.getSeries(req.user.id, req.params.id, range);
+    if (!data) return res.status(404).json({ message: 'Monitor not found' });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+async function heatmap(req, res) {
+  try {
+    const data = await service.getHeatmap(req.user.id, req.params.id, 90);
+    if (!data) return res.status(404).json({ message: 'Monitor not found' });
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { create, list, getOne, update, remove, checkNow, checks, stats, series, heatmap };

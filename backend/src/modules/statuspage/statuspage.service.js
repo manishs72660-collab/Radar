@@ -1,11 +1,15 @@
 const mongoose = require('mongoose');
 const StatusPage = require('./statuspage.model');
 const Monitor = require('../monitors/monitor.model');
-const Check = require('../checks/check.model');
 const Incident = require('../incidents/incident.model');
+const series = require('../checks/series.service');
 
 const DAYS = 90;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const CACHE_MS = 30 * 1000;
+
+// Public page bina login ke khulta hai, isliye har slug ka jawab 30 second yaad rakhte hain
+const cache = new Map();
 
 function httpError(status, message) {
   const err = new Error(message);
@@ -33,7 +37,8 @@ async function savePage(userId, data) {
   const requested = (data.monitorIds || []).filter((id) => mongoose.Types.ObjectId.isValid(id));
   const owned = await Monitor.find({ _id: { $in: requested }, userId }).select('_id');
 
-  return StatusPage.findOneAndUpdate(
+  const old = await StatusPage.findOne({ userId }).select('slug').lean();
+  const page = await StatusPage.findOneAndUpdate(
     { userId },
     {
       userId,
@@ -45,61 +50,31 @@ async function savePage(userId, data) {
     },
     { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
   ).lean();
+
+  cache.delete(slug);
+  if (old) cache.delete(old.slug);
+  return page;
 }
 
-async function getPublicPage(slug) {
-  const page = await StatusPage.findOne({ slug: String(slug).toLowerCase(), isPublic: true }).lean();
-  if (!page) return null;
-
+async function buildPublicPage(page) {
   const monitors = await Monitor.find({ _id: { $in: page.monitorIds }, userId: page.userId })
     .select('name currentStatus isActive')
     .sort({ name: 1 })
     .lean();
   const ids = monitors.map((m) => m._id);
 
-  // Pichle 90 din ke date keys (UTC)
-  const start = new Date();
-  start.setUTCHours(0, 0, 0, 0);
-  start.setUTCDate(start.getUTCDate() - (DAYS - 1));
-  const dateKeys = Array.from({ length: DAYS }, (_, i) => {
-    const d = new Date(start);
-    d.setUTCDate(d.getUTCDate() + i);
-    return d.toISOString().slice(0, 10);
-  });
-
-  const rows = ids.length
-    ? await Check.aggregate([
-        { $match: { monitorId: { $in: ids }, checkedAt: { $gte: start } } },
-        {
-          $group: {
-            _id: {
-              m: '$monitorId',
-              d: { $dateToString: { format: '%Y-%m-%d', date: '$checkedAt' } },
-            },
-            total: { $sum: 1 },
-            up: { $sum: { $cond: [{ $eq: ['$status', 'UP'] }, 1, 0] } },
-          },
-        },
-      ])
-    : [];
-
-  const byMonitor = {};
-  rows.forEach((r) => {
-    const key = String(r._id.m);
-    (byMonitor[key] = byMonitor[key] || {})[r._id.d] = { total: r.total, up: r.up };
-  });
+  // 90 din ka uptime: purane din summary cards se, aakhri ghante kachche checks se
+  const daily = ids.length ? await series.getDailyUptime(ids, DAYS) : {};
 
   const items = monitors.map((m) => {
-    const perDay = byMonitor[String(m._id)] || {};
+    const perDay = daily[String(m._id)] || {};
+    const days = series.daysList(perDay, DAYS).map((d) => ({ date: d.date, uptime: d.uptime }));
+
     let totalAll = 0;
     let upAll = 0;
-
-    const days = dateKeys.map((date) => {
-      const d = perDay[date];
-      if (!d) return { date, uptime: null };
+    Object.values(perDay).forEach((d) => {
       totalAll += d.total;
       upAll += d.up;
-      return { date, uptime: Math.round((d.up / d.total) * 10000) / 100 };
     });
 
     return {
@@ -146,6 +121,23 @@ async function getPublicPage(slug) {
       cause: i.cause,
     })),
   };
+}
+
+async function getPublicPage(slug) {
+  const key = String(slug).toLowerCase();
+
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_MS) return hit.data;
+
+  const page = await StatusPage.findOne({ slug: key, isPublic: true }).lean();
+  if (!page) {
+    cache.delete(key);
+    return null;
+  }
+
+  const data = await buildPublicPage(page);
+  cache.set(key, { at: Date.now(), data });
+  return data;
 }
 
 module.exports = { getPageForUser, savePage, getPublicPage };
