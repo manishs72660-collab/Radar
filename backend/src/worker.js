@@ -10,7 +10,9 @@ const { runCheck } = require('./modules/checks/check.engine');
 const { detectColdStart } = require('./modules/checks/coldstart.service');
 const { shouldRunNow } = require('./modules/checks/schedule.service');
 const { runRollup } = require('./modules/checks/rollup.service');
+const { runCleanup, isAutoEnabled } = require('./modules/checks/cleanup.service');
 const { openIncident, resolveIncident } = require('./modules/incidents/incident.service');
+
 const { notifyUser } = require('./modules/alerts/alert.service');
 
 function formatDuration(seconds) {
@@ -53,6 +55,18 @@ async function safeNotify(userId, text) {
 async function logRollup() {
   const r = await runRollup();
   console.log(`[rollup] ${r.hours} hour(s) checked, ${r.rollups} summary card(s) written`);
+
+  // Purane kachche checks ki safai. Sirf tab jab .env mein AUTO_CLEANUP=true likha ho.
+  // Safai fail ho to rollup ka kaam nahi bigadta.
+  if (isAutoEnabled()) {
+    try {
+      const keepDays = Number(process.env.RAW_KEEP_DAYS) || 3;
+      const c = await runCleanup({ keepDays });
+      console.log(`[cleanup] ${c.checksDeleted} old check(s) removed, ${c.skipped.length} hour(s) skipped, ${c.orphanRollupsDeleted + c.oldRollupsDeleted} old card(s) removed`);
+    } catch (err) {
+      console.error('[cleanup] failed:', err.message);
+    }
+  }
 }
 
 async function start() {

@@ -9,7 +9,11 @@
     "rollup": "node src/scripts/rollup.js",
     "cleanup:dry": "node src/scripts/cleanup-dry-run.js",
     "seed": "node src/scripts/seed.js",
-"seed:clean": "node src/scripts/seed-clean.js"
+"seed:clean": "node src/scripts/seed-clean.js",
+"cleanup": "node src/scripts/cleanup.js",
+"db:stats": "node src/scripts/db-stats.js",
+"backup": "node src/scripts/backup.js",
+"restore": "node src/scripts/restore.js"
   },
   "keywords": [],
   "author": "",

@@ -54,12 +54,20 @@ function createRollupService({ Check, Rollup, now = () => new Date() }) {
     const doc = buildRollup(checks);
     if (!doc) return false;
 
-    const write = () => Rollup.updateOne({ monitorId, hour: from }, { $set: doc }, { upsert: true });
+    // Card sirf badh sakta hai. Safai ke baad kuch checks hat chuke hon to chhota card bade card ko overwrite na kare.
+    // Agar bada card pehle se hai to filter match nahi karta, upsert "duplicate key" deta hai, aur hum use rehne dete hain.
+    const write = () =>
+      Rollup.updateOne({ monitorId, hour: from, total: { $lte: doc.total } }, { $set: doc }, { upsert: true });
     try {
       await write();
     } catch (err) {
-      if (err && err.code === 11000) await write(); // do jagah ek saath upsert hua, ek baar dobara
-      else throw err;
+      if (!err || err.code !== 11000) throw err;
+      try {
+        await write(); // ho sakta hai do jagah ek saath upsert hua ho
+      } catch (err2) {
+        if (err2 && err2.code === 11000) return false; // bada card pehle se hai, use mat chhedo
+        throw err2;
+      }
     }
     return true;
   }
@@ -110,12 +118,13 @@ function createRollupService({ Check, Rollup, now = () => new Date() }) {
     return { from: start, to: end, hours: hoursDone, rollups };
   }
 
-  // Jaanch: is range ke raw checks ki ginti aur rollups ke total ka jod barabar hona chahiye
+  // Jaanch: raw checks ki ginti rollups ke total se zyada nahi honi chahiye.
+  // (Safai ke baad raw kam hote hain, isliye "barabar" nahi, "zyada nahi" dekhte hain.)
   async function verify({ from, to }) {
     const raw = await Check.countDocuments({ checkedAt: { $gte: from, $lt: to } });
     const docs = await Rollup.find({ hour: { $gte: from, $lt: to } }).select('total').lean();
     const rolled = docs.reduce((a, d) => a + d.total, 0);
-    return { raw, rolled, match: raw === rolled };
+    return { raw, rolled, match: raw <= rolled };
   }
 
   return { rollupHour, rollupHourForAll, runRollup, verify };
