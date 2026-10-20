@@ -22,7 +22,7 @@ async function register(req, res) {
 
     const { token, user } = await service.register({ name, email, password });
     res.cookie(COOKIE_NAME, token, cookieOptions);
-    res.status(201).json({ user });
+    res.status(201).json({ user, token });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
   }
@@ -38,7 +38,7 @@ async function login(req, res) {
 
     const { token, user } = await service.login({ email, password });
     res.cookie(COOKIE_NAME, token, cookieOptions);
-    res.json({ user });
+    res.json({ user, token });
   } catch (err) {
     res.status(err.status || 500).json({ message: err.message });
   }
