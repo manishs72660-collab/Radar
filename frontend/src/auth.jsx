@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import api from './api';
+import api, { storeAccessToken } from './api';
 
 const AuthContext = createContext(null);
 
@@ -20,13 +20,13 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
-    sessionStorage.setItem('accessToken', res.data.token);
+    storeAccessToken(res.data.token);
     setUser(res.data.user);
   }, []);
 
   const register = useCallback(async (name, email, password) => {
     const res = await api.post('/auth/register', { name, email, password });
-    sessionStorage.setItem('accessToken', res.data.token);
+    storeAccessToken(res.data.token);
     setUser(res.data.user);
   }, []);
 
