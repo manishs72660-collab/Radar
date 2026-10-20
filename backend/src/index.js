@@ -26,9 +26,13 @@ if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 }
 
-// Allowed addresses: .env ka CLIENT_URL (comma se alag karke kai bhi de sakte ho)
-const allowed = (process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
+// Allowed addresses: production frontend, local development, and any CLIENT_URL entries.
+const allowed = [
+  'https://radar-theta-ivory.vercel.app',
+  'http://localhost:5173',
+  ...(process.env.CLIENT_URL || '').split(','),
+]
+  .filter(Boolean)
   .map((s) => s.trim().replace(/\/$/, ''));
 allowed.slice().forEach((o) => {
   if (o.includes('localhost')) allowed.push(o.replace('localhost', '127.0.0.1'));
