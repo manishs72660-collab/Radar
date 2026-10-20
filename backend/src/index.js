@@ -21,7 +21,7 @@ process.on('uncaughtException', (err) => console.error('Uncaught exception:', er
 const app = express();
 
 // Render, Railway jaise hosts ke peeche asli IP X-Forwarded-For mein aata hai.
-// .env mein TRUST_PROXY=1 daalo jab deploy karo, warna sab users ek hi IP lagenge.
+// .env mein TRUST_PROXY=<number> daalo jab deploy karo, warna sab users ek hi IP lagenge.
 if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 }
@@ -51,6 +51,14 @@ app.get('/health', (req, res) => {
 
 app.use('/api', apiLimiter);
 
+// Deploy ke baad dekhne ke liye ki server tumhara asli IP dekh raha hai ya nahi (rate limit isi par chalta hai).
+// Sirf tab chalu jab DEBUG_IP=true ho. Kaam khatam hone par wo variable hata do.
+if (process.env.DEBUG_IP === 'true') {
+  app.get('/api/debug/ip', (req, res) => {
+    res.json({ ip: req.ip, forwardedFor: req.headers['x-forwarded-for'] || null, trustProxy: app.get('trust proxy') });
+  });
+}
+
 app.use('/api/auth', authRoutes);
 app.use('/api/monitors', monitorRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -66,8 +74,19 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-});
+function startServer() {
+  return connectDB().then(
+    () =>
+      new Promise((resolve) => {
+        const server = app.listen(PORT, () => {
+          console.log(`Server running on port ${PORT}`);
+          resolve(server);
+        });
+      })
+  );
+}
+
+module.exports = { app, startServer };
+
+// "npm run dev" se seedha chalane par pehle jaisa hi shuru ho
+if (require.main === module) startServer();

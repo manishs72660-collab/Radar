@@ -5,14 +5,14 @@ const connection = require('./config/redis');
 const connectDB = require('./config/db');
 const Monitor = require('./modules/monitors/monitor.model');
 const Check = require('./modules/checks/check.model');
-const { checkQueue } = require('./modules/checks/check.queue');
+const { checkQueue, scheduleMonitor } = require('./modules/checks/check.queue');
+const { syncSchedulers } = require('./modules/checks/schedulerSync');
 const { runCheck } = require('./modules/checks/check.engine');
 const { detectColdStart } = require('./modules/checks/coldstart.service');
 const { shouldRunNow } = require('./modules/checks/schedule.service');
 const { runRollup } = require('./modules/checks/rollup.service');
 const { runCleanup, isAutoEnabled } = require('./modules/checks/cleanup.service');
 const { openIncident, resolveIncident } = require('./modules/incidents/incident.service');
-
 const { notifyUser } = require('./modules/alerts/alert.service');
 
 function formatDuration(seconds) {
@@ -138,12 +138,27 @@ async function start() {
         console.log(`[${monitor.name}] ${result.status} - ${result.responseTime}ms`);
       }
     },
-    { connection, concurrency: 5 }
+    {
+      connection,
+      concurrency: 5,
+      // Redis ko kam chhedna: khali queue mein har 5 second ke bajaye 30 second mein ek baar poochna.
+      // Upstash free plan mein commands ginti hoti hain (500K per month).
+      drainDelay: 30,
+      stalledInterval: 120000,
+    }
   );
 
   worker.on('failed', (job, err) => {
     console.error(`Job failed: ${err.message}`);
   });
+
+  // MongoDB ki list ke hisaab se Redis ke schedulers barabar karo (Redis ud gaya ho to bhi monitoring wapas chalu)
+  try {
+    const r = await syncSchedulers({ Monitor, queue: checkQueue, schedule: scheduleMonitor });
+    console.log(`[sync] ${r.active} active monitor(s) scheduled, ${r.removed} stale scheduler(s) removed`);
+  } catch (err) {
+    console.error('[sync] failed:', err.message);
+  }
 
   // Har ghante ke 5 minute baad (UTC): pichla poora ghanta ab band ho chuka hai
   await checkQueue.upsertJobScheduler(
@@ -158,4 +173,7 @@ async function start() {
   console.log('Worker started, waiting for jobs...');
 }
 
-start();
+module.exports = { start };
+
+// "npm run worker" se seedha chalane par pehle jaisa hi shuru ho
+if (require.main === module) start();
