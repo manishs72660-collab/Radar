@@ -3,35 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { errorMessage } from '../api';
 import Logo from '../components/Logo';
+import RadarIllustration from '../components/RadarIllustration';
 
 function AuthArt() {
   return (
     <div className="auth-art" aria-hidden="true">
-      <svg viewBox="0 0 400 400">
-        <defs>
-          <linearGradient id="aSweep" x1="0" x2="1">
-            <stop offset="0" stopColor="#c8ff2e" stopOpacity="0" />
-            <stop offset="1" stopColor="#c8ff2e" stopOpacity=".28" />
-          </linearGradient>
-        </defs>
-        {[190, 140, 90, 40].map((r) => (
-          <circle
-            key={r} cx="200" cy="200" r={r} fill="none"
-            stroke="#262626" strokeWidth="1.5" strokeDasharray={r === 190 ? '0' : '3 7'}
-          />
-        ))}
-        <line x1="10" y1="200" x2="390" y2="200" stroke="#262626" />
-        <line x1="200" y1="10" x2="200" y2="390" stroke="#262626" />
-        <g style={{ transformOrigin: '200px 200px', animation: 'sweep 7s linear infinite' }}>
-          <path d="M200 200 L390 200 A190 190 0 0 0 365 120 Z" fill="url(#aSweep)" />
-          <line x1="200" y1="200" x2="390" y2="200" stroke="#c8ff2e" strokeWidth="2" />
-        </g>
-        <circle cx="262" cy="130" r="7" fill="#c8ff2e" />
-        <circle cx="130" cy="250" r="7" fill="#c8ff2e" />
-        <circle cx="300" cy="270" r="7" fill="#ff5c5c" />
-        <circle cx="160" cy="120" r="7" fill="#c8ff2e" />
-        <circle cx="200" cy="200" r="5" fill="#c8ff2e" />
-      </svg>
+      <RadarIllustration />
       <div className="auth-art-copy">
         <h2>Know when your site is slow, not just when it is down.</h2>
         <p>Radar watches the apps you host on Render, Railway and other free or cheap platforms.</p>

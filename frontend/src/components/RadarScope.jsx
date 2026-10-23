@@ -27,29 +27,29 @@ export default function RadarScope({ monitors }) {
     <svg className="scope" viewBox="0 0 360 360" role="img" aria-label="Radar view of your monitors">
       <defs>
         <radialGradient id="scopeBg" cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="#1b2640" />
-          <stop offset="1" stopColor="#0e1424" />
+          <stop offset="0" stopColor="#101610" />
+          <stop offset="1" stopColor="#080b08" />
         </radialGradient>
         <linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#f5b042" stopOpacity="0" />
-          <stop offset="1" stopColor="#f5b042" stopOpacity=".38" />
+          <stop offset="0" stopColor="#c8ff2e" stopOpacity="0" />
+          <stop offset="1" stopColor="#c8ff2e" stopOpacity=".3" />
         </linearGradient>
         <clipPath id="scopeClip">
           <circle cx={CX} cy={CY} r={R} />
         </clipPath>
       </defs>
 
-      <circle cx={CX} cy={CY} r={R + 8} fill="none" stroke="#26304a" strokeWidth="1" />
-      <circle cx={CX} cy={CY} r={R} fill="url(#scopeBg)" stroke="#34415f" strokeWidth="1.5" />
+      <circle cx={CX} cy={CY} r={R + 8} fill="none" stroke="#263026" strokeWidth="1" />
+      <circle cx={CX} cy={CY} r={R} fill="url(#scopeBg)" stroke="#384234" strokeWidth="1.5" />
       {[0.25, 0.5, 0.75].map((f) => (
-        <circle key={f} cx={CX} cy={CY} r={R * f} fill="none" stroke="#2b3756" strokeDasharray="2 5" />
+        <circle key={f} cx={CX} cy={CY} r={R * f} fill="none" stroke="#30392c" strokeDasharray="2 5" />
       ))}
-      <line x1={CX - R} y1={CY} x2={CX + R} y2={CY} stroke="#2b3756" />
-      <line x1={CX} y1={CY - R} x2={CX} y2={CY + R} stroke="#2b3756" />
+      <line x1={CX - R} y1={CY} x2={CX + R} y2={CY} stroke="#30392c" />
+      <line x1={CX} y1={CY - R} x2={CX} y2={CY + R} stroke="#30392c" />
 
       {/* ring labels */}
       {[['0.25', '750ms'], ['0.5', '1.5s'], ['0.75', '2.2s']].map(([f, label]) => (
-        <text key={f} x={CX + 4} y={CY - R * Number(f) - 4} fontSize="9" fill="#5a6585">
+        <text key={f} x={CX + 4} y={CY - R * Number(f) - 4} fontSize="9" fill="#838d7d">
           {label}
         </text>
       ))}
@@ -57,11 +57,11 @@ export default function RadarScope({ monitors }) {
       <g clipPath="url(#scopeClip)">
         <g className="scope-sweep">
           <path d={`M${CX} ${CY} L${CX + R} ${CY} A${R} ${R} 0 0 0 ${CX + R * Math.cos(-0.9)} ${CY + R * Math.sin(-0.9)} Z`} fill="url(#sweepGrad)" />
-          <line x1={CX} y1={CY} x2={CX + R} y2={CY} stroke="#f5b042" strokeWidth="1.5" />
+          <line x1={CX} y1={CY} x2={CX + R} y2={CY} stroke="#c8ff2e" strokeWidth="1.5" />
         </g>
       </g>
 
-      <circle cx={CX} cy={CY} r="3.5" fill="#f5b042" />
+      <circle cx={CX} cy={CY} r="3.5" fill="#c8ff2e" />
 
       {blips.map(({ m, x, y, color }) => (
         <g
@@ -74,8 +74,8 @@ export default function RadarScope({ monitors }) {
         >
           <title>{`${m.name}: ${m.currentStatus}${m.avgResponse != null ? `, avg ${formatMs(m.avgResponse)}` : ''}`}</title>
           <circle className="blip-ring" cx={x} cy={y} r="5" fill={color} opacity="0.6" />
-          <circle cx={x} cy={y} r="6" fill={color} stroke="#0e1424" strokeWidth="2" />
-          <text x={x + 11} y={y + 4} fontSize="10.5" fill="#cfd6ea" style={{ pointerEvents: 'none' }}>
+          <circle cx={x} cy={y} r="6" fill={color} stroke="#080b08" strokeWidth="2" />
+          <text x={x + 11} y={y + 4} fontSize="10.5" fill="#e0e8dc" style={{ pointerEvents: 'none' }}>
             {m.name.length > 14 ? `${m.name.slice(0, 13)}…` : m.name}
           </text>
         </g>

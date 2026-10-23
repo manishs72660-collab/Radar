@@ -11,8 +11,8 @@ import { formatMs, formatPct } from '../utils';
 export function ChartTooltip({ active, payload, label, labelFormatter }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#1b2338', border: '1px solid #34415f', borderRadius: 10, padding: '8px 12px', fontSize: 13 }}>
-      <div style={{ color: '#8c97b5', marginBottom: 2 }}>{labelFormatter ? labelFormatter(label) : label}</div>
+    <div className="chart-tooltip">
+      <div>{labelFormatter ? labelFormatter(label) : label}</div>
       <div style={{ fontWeight: 600 }}>{formatMs(payload[0].value)}</div>
     </div>
   );
@@ -118,15 +118,15 @@ export default function Overview() {
               <AreaChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                 <defs>
                   <linearGradient id="ovGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#f5b042" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#f5b042" stopOpacity={0} />
+                    <stop offset="0%" stopColor="#c8ff2e" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#c8ff2e" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid stroke="#26304a" strokeDasharray="3 6" vertical={false} />
-                <XAxis dataKey="label" stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} />
-                <YAxis stroke="#5a6585" tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}s` : `${v}ms`)} />
+                <CartesianGrid stroke="#252b25" strokeDasharray="3 6" vertical={false} />
+                <XAxis dataKey="label" stroke="#858d84" tickLine={false} axisLine={false} fontSize={12} />
+                <YAxis stroke="#858d84" tickLine={false} axisLine={false} fontSize={12} tickFormatter={(v) => (v >= 1000 ? `${v / 1000}s` : `${v}ms`)} />
                 <Tooltip content={<ChartTooltip labelFormatter={(l) => `Around ${l}`} />} />
-                <Area type="monotone" dataKey="avg" stroke="#f5b042" strokeWidth={2.2} fill="url(#ovGrad)" />
+                <Area type="monotone" dataKey="avg" stroke="#c8ff2e" strokeWidth={2} fill="url(#ovGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           )}

@@ -10,7 +10,7 @@ const links = [
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
-export default function Layout() {
+export default function Layout({ children }) {
   const { user, logout } = useAuth();
 
   return (
@@ -54,7 +54,7 @@ export default function Layout() {
           </nav>
         </div>
         <main className="main">
-          <Outlet />
+          {children || <Outlet />}
         </main>
       </div>
     </div>
