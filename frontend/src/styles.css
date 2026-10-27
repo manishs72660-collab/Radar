@@ -124,6 +124,7 @@ h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing:
 .readout-value small { font-size: 16px; color: var(--muted); font-weight: 500; margin-left: 3px; }
 .readout-note { color: var(--muted); font-size: 13px; margin-top: 2px; }
 .is-up { color: var(--up); }
+.is-warn { color: var(--accent); }
 .is-down { color: var(--down); }
 
 .banner {

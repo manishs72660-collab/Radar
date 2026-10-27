@@ -27,7 +27,7 @@ export function prepareChartData({ kind, checks = [], points = [], bucketMinutes
       t: new Date(c.checkedAt).getTime(),
       value: c.status === 'DOWN' ? null : c.responseTime, // down check ka 30s timeout speed nahi hai
       down: c.status === 'DOWN' ? 1 : 0,
-      cold: c.isColdStart ? 1 : 0,
+      cold: c.status === 'UP' && c.isColdStart ? 1 : 0,
       error: c.error || null,
       code: c.statusCode ?? null,
     }));
@@ -65,6 +65,14 @@ export function heatLevel(uptime) {
   return 'l1';
 }
 
+export function heatLevelColorClass(level) {
+  if (level === 'l4') return 'is-up';
+  if (level === 'l3') return 'is-up';
+  if (level === 'l2') return 'is-warn';
+  if (level === 'l1') return 'is-down';
+  return '';
+}
+
 // Hafta Monday se shuru. Pehle hafte mein khaali jagah chhodni padti hai.
 export function heatCells(days) {
   if (!days || !days.length) return { cells: [], weeks: 0 };
@@ -96,10 +104,10 @@ export function dayTicks(minT, maxT, maxTicks = 8) {
   if (!Number.isFinite(minT) || !Number.isFinite(maxT) || maxT <= minT) return [];
   const all = [];
   const d = new Date(minT);
-  d.setHours(24, 0, 0, 0); // agla local midnight
+  d.setUTCHours(24, 0, 0, 0);
   while (d.getTime() <= maxT) {
     all.push(d.getTime());
-    d.setDate(d.getDate() + 1);
+    d.setUTCDate(d.getUTCDate() + 1);
   }
   if (all.length <= maxTicks) return all;
   const step = Math.ceil(all.length / maxTicks);

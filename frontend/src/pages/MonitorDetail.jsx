@@ -13,6 +13,7 @@ import ColdStartCard from '../components/ColdStartCard';
 import SleepSchedule from '../components/SleepSchedule';
 import { IncidentTable } from './Incidents';
 import { formatMs, formatPct, timeAgo } from '../utils';
+import { heatLevel, heatLevelColorClass } from '../chartData';
 
 const RANGES = ['1h', '24h', '7d', '30d'];
 const isSeriesRange = (r) => r === '7d' || r === '30d';
@@ -201,7 +202,7 @@ export default function MonitorDetail() {
 
         {statsReady ? (
           <div className="stat-strip">
-            <div><b className={s.uptime != null && s.uptime < 99 ? 'is-down' : 'is-up'}>{formatPct(s.uptime)}</b><span>Uptime</span></div>
+            <div><b className={heatLevelColorClass(heatLevel(s.uptime))}>{formatPct(s.uptime)}</b><span>Uptime</span></div>
             <div><b>{formatMs(s.avg)}</b><span>Average</span></div>
             {s.p95 != null ? (
               <div><b>{formatMs(s.p95)}</b><span>Slowest 5% (p95)</span></div>

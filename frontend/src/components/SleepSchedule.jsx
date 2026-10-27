@@ -20,6 +20,18 @@ function awakeHoursOf(start, end) {
   return ((end - start + 24) % 24) || 24;
 }
 
+function scheduleValues(schedule, zone) {
+  const s = schedule || {};
+  return {
+    enabled: !!s.enabled,
+    startHour: s.startHour ?? 9,
+    endHour: s.endHour ?? 23,
+    timezone: s.enabled ? s.timezone || zone : zone,
+    prewarmMinutes: s.prewarmMinutes ?? 5,
+    offHoursEveryMinutes: s.offHoursEveryMinutes ?? 0,
+  };
+}
+
 export default function SleepSchedule({ monitor, onSaved }) {
   const toast = useToast();
   const zone = browserZone();
@@ -30,18 +42,10 @@ export default function SleepSchedule({ monitor, onSaved }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const s = monitor.schedule || {};
-    const next = {
-      enabled: !!s.enabled,
-      startHour: s.startHour ?? 9,
-      endHour: s.endHour ?? 23,
-      timezone: s.enabled ? s.timezone || zone : zone,
-      prewarmMinutes: s.prewarmMinutes ?? 5,
-      offHoursEveryMinutes: s.offHoursEveryMinutes ?? 0,
-    };
+    const next = scheduleValues(monitor.schedule, zone);
     setForm(next);
     setBase(next);
-  }, [monitor._id, monitor.schedule]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [monitor._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!form) return null;
 
@@ -66,6 +70,9 @@ export default function SleepSchedule({ monitor, onSaved }) {
     setSaving(true);
     try {
       const { data } = await api.patch(`/monitors/${monitor._id}`, { schedule: form });
+      const saved = scheduleValues(data.schedule, zone);
+      setForm(saved);
+      setBase(saved);
       onSaved(data);
       toast(form.enabled ? 'Sleep schedule saved' : 'Sleep schedule turned off');
     } catch (err) {

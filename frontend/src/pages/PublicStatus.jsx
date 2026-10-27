@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../api';
 import Logo from '../components/Logo';
 import { formatDateTime, formatDuration } from '../utils';
+import { heatLevel } from '../chartData';
 
 const OVERALL = {
   operational: { cls: 'ok', title: 'All systems operational', sub: 'Everything is running normally.' },
@@ -14,10 +15,11 @@ const OVERALL = {
 const STATUS_LABEL = { UP: ['up', 'Operational'], DOWN: ['down', 'Down'], PAUSED: ['', 'Paused'], PENDING: ['', 'Waiting'] };
 
 function dayClass(uptime) {
-  if (uptime == null) return '';
-  if (uptime >= 99.5) return 'up';
-  if (uptime >= 95) return 'warn';
-  return 'down';
+  const level = heatLevel(uptime);
+  if (level === 'l4' || level === 'l3') return 'up';
+  if (level === 'l2') return 'warn';
+  if (level === 'l1') return 'down';
+  return '';
 }
 
 function DayBars({ days }) {
@@ -40,14 +42,30 @@ export default function PublicStatus() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const load = () =>
-      api
-        .get(`/public/status/${slug}`)
-        .then((r) => setData(r.data))
-        .catch((err) => err?.response?.status === 404 && setNotFound(true));
+    let active = true;
+    let timer;
+    setData(null);
+    setNotFound(false);
+
+    const load = async () => {
+      try {
+        const { data: page } = await api.get(`/public/status/${slug}`);
+        if (active) setData(page);
+      } catch (err) {
+        if (!active) return;
+        if (err?.response?.status === 404) {
+          clearInterval(timer);
+          setNotFound(true);
+        }
+      }
+    };
+
     load();
-    const t = setInterval(load, 30000);
-    return () => clearInterval(t);
+    timer = setInterval(load, 30000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, [slug]);
 
   useEffect(() => {

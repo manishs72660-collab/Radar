@@ -26,7 +26,7 @@ function StatusPageSection() {
           });
         }
       })
-      .catch(() => {})
+      .catch((err) => toast(errorMessage(err), 'err'))
       .finally(() => setReady(true));
   }, []);
 
@@ -147,7 +147,7 @@ function TelegramSection() {
         setSettings(r.data);
         setChatId(r.data.telegramChatId || '');
       })
-      .catch(() => {});
+      .catch((err) => toast(errorMessage(err), 'err'));
   }, []);
 
   async function save(e) {

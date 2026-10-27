@@ -69,6 +69,8 @@ async function checkNow(req, res) {
     const result = await runCheck(monitor);
     await Check.create({ monitorId: monitor._id, ...result });
 
+    // Naya check aaya — cache turant clear karo (warna user ko 20s tak purana data dikhega)
+
     // Manual check sirf history mein jodta hai, incident logic worker sambhalta hai
     res.json(result);
   } catch (err) {

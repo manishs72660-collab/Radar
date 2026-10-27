@@ -58,7 +58,7 @@ export default function MonitorModal({ onClose, onSaved }) {
           </div>
           <div className="field">
             <label htmlFor="m-status">Expected status</label>
-            <input id="m-status" type="number" className="input" value={form.expectedStatus} onChange={set('expectedStatus')} />
+            <input id="m-status" type="number" className="input" min="100" max="599" step="1" required value={form.expectedStatus} onChange={set('expectedStatus')} />
           </div>
         </div>
 

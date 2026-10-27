@@ -10,10 +10,12 @@ import { formatMs, formatPct } from '../utils';
 
 export function ChartTooltip({ active, payload, label, labelFormatter }) {
   if (!active || !payload?.length) return null;
+  const failed = payload[0].payload.down;
   return (
     <div className="chart-tooltip">
       <div>{labelFormatter ? labelFormatter(label) : label}</div>
       <div style={{ fontWeight: 600 }}>{formatMs(payload[0].value)}</div>
+      {failed > 0 && <div>{failed} failed {failed === 1 ? 'check' : 'checks'}</div>}
     </div>
   );
 }
@@ -39,6 +41,7 @@ export default function Overview() {
     time: t.time,
    label: new Date(t.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     avg: t.avg,
+    down: t.down,
   }));
 
   return (

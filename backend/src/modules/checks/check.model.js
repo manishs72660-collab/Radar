@@ -18,4 +18,5 @@ const checkSchema = new mongoose.Schema({
   checkedAt: { type: Date, default: Date.now, index: true },
 });
 
+checkSchema.index({ monitorId: 1, checkedAt: 1 });
 module.exports = mongoose.model('Check', checkSchema);

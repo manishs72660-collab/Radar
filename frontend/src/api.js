@@ -1,7 +1,13 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '/api' : '');
+
+if (!baseURL) {
+  throw new Error('VITE_API_URL must be set for production builds.');
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://radar-bbo0.onrender.com/api',
+  baseURL,
   withCredentials: true, // httpOnly cookie bhejne ke liye zaroori
 });
 

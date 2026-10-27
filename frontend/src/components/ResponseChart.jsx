@@ -7,7 +7,7 @@ const C = { line: '#f5b042', down: '#ff6b6b', cold: '#b794f6', grid: '#26304a', 
 function axisLabel(range, t) {
   const d = new Date(t);
   return range === '7d' || range === '30d'
-    ? d.toLocaleDateString([], { day: 'numeric', month: 'short' })
+    ? d.toLocaleDateString([], { day: 'numeric', month: 'short', timeZone: 'UTC' })
     : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
@@ -56,7 +56,7 @@ export function ChartBody({ prepared, kind, range, avg, width, height }) {
   const dot = (props) => {
     const { cx, cy, payload, index } = props;
     if (cx == null || cy == null) return <g key={index} />;
-    if (payload.cold) return <circle key={index} cx={cx} cy={cy} r={5.5} fill={C.cold} stroke="#0e1320" strokeWidth={2} />;
+    if (kind === 'raw' && payload.cold) return <circle key={index} cx={cx} cy={cy} r={5.5} fill={C.cold} stroke="#0e1320" strokeWidth={2} />;
     return <g key={index} />;
   };
 
@@ -122,13 +122,16 @@ export default function ResponseChart({ kind, range, checks, points, bucketMinut
       <div className="chart-legend">
         {kind === 'series' && <span><i className="lg-band" /> fastest to slowest</span>}
         <span><i className="lg-line" /> {kind === 'series' ? 'average' : 'response time'}</span>
-        <span><i className="lg-dot" style={{ background: C.cold }} /> cold start</span>
+        {kind === 'raw' && <span><i className="lg-dot" style={{ background: C.cold }} /> cold start</span>}
         <span><i className="lg-dot" style={{ background: C.down }} /> failed check</span>
       </div>
       {prepared.clipped && (
         <p className="chart-note">
           Graph is scaled to normal speed so cold starts do not flatten it. Cold starts sit at the top, hover one for its real time.
         </p>
+      )}
+      {kind === 'series' && prepared.data.some((d) => d.cold > 0) && (
+        <p className="chart-note">Cold starts are counted in each bucket, but their exact response-time positions are not available in aggregated history.</p>
       )}
     </div>
   );

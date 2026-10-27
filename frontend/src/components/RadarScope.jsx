@@ -6,6 +6,14 @@ import { hashToUnit, formatMs } from '../utils';
 const CX = 180;
 const CY = 180;
 const R = 150;
+const MIN_DISTANCE = 0.18;
+const RESPONSE_RANGE_MS = 3000;
+const DISTANCE_RANGE = 0.74;
+
+const ringLabels = [0.25, 0.5, 0.75].map((f) => [
+  String(f),
+  formatMs(Math.round(((f - MIN_DISTANCE) / DISTANCE_RANGE) * RESPONSE_RANGE_MS)),
+]);
 
 export default function RadarScope({ monitors }) {
   const navigate = useNavigate();
@@ -14,7 +22,7 @@ export default function RadarScope({ monitors }) {
     const angle = hashToUnit(m._id) * Math.PI * 2;
     const ms = m.avgResponse ?? m.lastResponse ?? 0;
     // 0ms -> centre ke paas, 3000ms+ -> kinara
-    const dist = 0.18 + Math.min(ms / 3000, 1) * 0.74;
+    const dist = MIN_DISTANCE + Math.min(ms / RESPONSE_RANGE_MS, 1) * DISTANCE_RANGE;
     return {
       m,
       x: CX + Math.cos(angle) * R * dist,
@@ -48,7 +56,7 @@ export default function RadarScope({ monitors }) {
       <line x1={CX} y1={CY - R} x2={CX} y2={CY + R} stroke="#30392c" />
 
       {/* ring labels */}
-      {[['0.25', '750ms'], ['0.5', '1.5s'], ['0.75', '2.2s']].map(([f, label]) => (
+      {ringLabels.map(([f, label]) => (
         <text key={f} x={CX + 4} y={CY - R * Number(f) - 4} fontSize="9" fill="#838d7d">
           {label}
         </text>

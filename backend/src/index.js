@@ -1,9 +1,10 @@
 require("node:dns/promises").setServers(["1.1.1.1", "8.8.8.8"]);
 require('dotenv').config();
-require('./config/redis');
+const redis = require('./config/redis');
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const mongoose = require('mongoose');
 const connectDB = require('./config/db');
 const { apiLimiter } = require('./middleware/rateLimit');
 
@@ -20,13 +21,10 @@ process.on('uncaughtException', (err) => console.error('Uncaught exception:', er
 
 const app = express();
 
-// Render, Railway jaise hosts ke peeche asli IP X-Forwarded-For mein aata hai.
-// .env mein TRUST_PROXY=<number> daalo jab deploy karo, warna sab users ek hi IP lagenge.
 if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number(process.env.TRUST_PROXY) || process.env.TRUST_PROXY);
 }
 
-// Allowed addresses: production frontend, local development, and any CLIENT_URL entries.
 const allowed = [
   'https://radar-theta-ivory.vercel.app',
   'http://localhost:5173',
@@ -49,14 +47,35 @@ app.use(
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+// ---------- HEALTH CHECK ----------
+// Mongo + Redis dono up hain to 200. Warna 503.
+// Load balancers / uptime monitors isse "healthy" decide karte hain.
+app.get('/health', async (req, res) => {
+  const mongoOk = mongoose.connection.readyState === 1;
+
+  let redisOk = false;
+  try {
+    const pong = await Promise.race([
+      redis.ping(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('ping timeout')), 1000)),
+    ]);
+    redisOk = pong === 'PONG';
+  } catch {
+    redisOk = false;
+  }
+
+  const ok = mongoOk && redisOk;
+  res.status(ok ? 200 : 503).json({
+    status: ok ? 'ok' : 'degraded',
+    mongo: mongoOk ? 'up' : 'down',
+    redis: redisOk ? 'up' : 'down',
+    uptime: Math.round(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.use('/api', apiLimiter);
 
-// Deploy ke baad dekhne ke liye ki server tumhara asli IP dekh raha hai ya nahi (rate limit isi par chalta hai).
-// Sirf tab chalu jab DEBUG_IP=true ho. Kaam khatam hone par wo variable hata do.
 if (process.env.DEBUG_IP === 'true') {
   app.get('/api/debug/ip', (req, res) => {
     res.json({ ip: req.ip, forwardedFor: req.headers['x-forwarded-for'] || null, trustProxy: app.get('trust proxy') });
@@ -70,7 +89,6 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/status-page', statusPageRoutes);
 app.use('/api/public', publicRoutes);
 
-// Koi bhi bacha hua error JSON mein jaye
 app.use((err, req, res, next) => {
   console.error('Request error:', err);
   res.status(err.status || 500).json({ message: err.message || 'Server error' });
@@ -92,5 +110,4 @@ function startServer() {
 
 module.exports = { app, startServer };
 
-// "npm run dev" se seedha chalane par pehle jaisa hi shuru ho
 if (require.main === module) startServer();

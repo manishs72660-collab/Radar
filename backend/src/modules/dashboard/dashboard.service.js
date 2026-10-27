@@ -4,7 +4,34 @@ const Incident = require('../incidents/incident.model');
 
 const DAY = 24 * 60 * 60 * 1000;
 
-async function getSummary(userId) {
+// ---------- CACHE ----------
+// Frontend har 15s mein call karta hai. 20s TTL.
+//
+// Do patterns yahan combine hain:
+// 1) Stampede protection: agar 5 users ek saath cache expiry pe aayein,
+//    sirf pehla compute karta hai, baaki uska result wait karte hain.
+// 2) Stale-while-revalidate: agar cache stale hai (20s+ purana),
+//    purana data turant serve karo + background mein fresh compute karo.
+//    Isse KABHI BHI koi request 500ms wait nahi karti.
+//
+// Trade-off: user ko max 40s tak purana dashboard dikh sakta hai.
+// Monitoring ke liye theek hai (frontend 15s pe poll karta hai).
+const CACHE_TTL_MS = 20000;
+const summaryCache = new Map(); // userId -> { data, expiresAt }
+const inflight = new Map();     // userId -> Promise (stampede protection)
+
+function clearSummaryCache(userId) {
+  if (userId) {
+    summaryCache.delete(String(userId));
+    inflight.delete(String(userId));
+  } else {
+    summaryCache.clear();
+    inflight.clear();
+  }
+}
+
+// ---------- ACTUAL KAAM ----------
+async function computeSummary(userId) {
   const monitors = await Monitor.find({ userId }).sort({ createdAt: -1 }).lean();
   const ids = monitors.map((m) => m._id);
 
@@ -51,11 +78,10 @@ async function getSummary(userId) {
     };
   });
 
-  // Pichle 24 ghante ka hourly average (sab monitors ka)
   const buckets = {};
   checks.forEach((c) => {
     const d = new Date(c.checkedAt);
-   d.setMinutes(Math.floor(d.getMinutes() / 10) * 10, 0, 0);
+    d.setMinutes(Math.floor(d.getMinutes() / 10) * 10, 0, 0);
     const key = d.getTime();
     buckets[key] = buckets[key] || { sum: 0, n: 0, down: 0 };
     buckets[key].sum += c.responseTime;
@@ -86,6 +112,62 @@ async function getSummary(userId) {
   };
 }
 
+// Background refresh: cache ko naye data se update karta hai, caller ko nahi rokta
+function startBackgroundRefresh(key, userId) {
+  if (inflight.has(key)) return;
+
+  const promise = computeSummary(userId)
+    .then((data) => {
+      summaryCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+      inflight.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      console.error('Dashboard background refresh failed:', err.message);
+      inflight.delete(key);
+      // Purana data serve karte rahenge
+    });
+
+  inflight.set(key, promise);
+}
+
+// ---------- CACHE WRAPPER (stale-while-revalidate) ----------
+async function getSummary(userId) {
+  const key = String(userId);
+  const now = Date.now();
+  const cached = summaryCache.get(key);
+
+  // 1) Fresh cache — turant serve
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  // 2) Stale cache — purana data turant serve + background refresh
+  if (cached && cached.data) {
+    startBackgroundRefresh(key, userId);
+    return cached.data;
+  }
+
+  // 3) No cache at all — pehli baar. Compute karo, baaki wait karein (stampede protection)
+  if (inflight.has(key)) {
+    return inflight.get(key);
+  }
+
+  const promise = computeSummary(userId)
+    .then((data) => {
+      summaryCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+      inflight.delete(key);
+      return data;
+    })
+    .catch((err) => {
+      inflight.delete(key);
+      throw err;
+    });
+
+  inflight.set(key, promise);
+  return promise;
+}
+
 async function getIncidents(userId, monitorId) {
   const monitors = await Monitor.find({ userId }).select('name').lean();
   const names = {};
@@ -98,4 +180,4 @@ async function getIncidents(userId, monitorId) {
   return incidents.map((i) => ({ ...i, monitorName: names[String(i.monitorId)] || 'Deleted monitor' }));
 }
 
-module.exports = { getSummary, getIncidents };
+module.exports = { getSummary, getIncidents, clearSummaryCache };
