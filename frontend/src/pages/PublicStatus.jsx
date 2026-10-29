@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
 import Logo from '../components/Logo';
+import { AlertTriangle } from 'lucide-react';
 import { formatDateTime, formatDuration } from '../utils';
 import { heatLevel } from '../chartData';
 
@@ -40,22 +41,30 @@ export default function PublicStatus() {
   const { slug } = useParams();
   const [data, setData] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
     let timer;
     setData(null);
     setNotFound(false);
+    setLoadError('');
 
     const load = async () => {
       try {
         const { data: page } = await api.get(`/public/status/${slug}`);
-        if (active) setData(page);
+        if (active) {
+          setData(page);
+          setLoadError('');
+        }
       } catch (err) {
         if (!active) return;
         if (err?.response?.status === 404) {
           clearInterval(timer);
           setNotFound(true);
+        } else {
+          setLoadError(err?.response?.data?.message || err?.message || 'Could not load this status page.');
         }
       }
     };
@@ -66,7 +75,7 @@ export default function PublicStatus() {
       active = false;
       clearInterval(timer);
     };
-  }, [slug]);
+  }, [slug, attempt]);
 
   useEffect(() => {
     if (data?.title) document.title = `${data.title} - Status`;
@@ -82,7 +91,15 @@ export default function PublicStatus() {
       </div>
     );
   }
-  if (!data) return <div className="center-screen">Loading...</div>;
+  if (loadError && !data) {
+    return (
+      <div className="page-state page-state-error" role="alert">
+        <AlertTriangle size={20} /><div><strong>Status page unavailable</strong><p>{loadError}</p></div>
+        <button className="btn btn-sm" onClick={() => setAttempt((value) => value + 1)}>Try again</button>
+      </div>
+    );
+  }
+  if (!data) return <div className="app-loading" role="status"><span className="loading-mark" /> Loading status page…</div>;
 
   const overall = OVERALL[data.overall] || OVERALL.unknown;
 

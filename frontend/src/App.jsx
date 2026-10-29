@@ -10,21 +10,25 @@ import Settings from './pages/Settings';
 import PublicStatus from './pages/PublicStatus';
 import Landing from './pages/Landing';
 
+function AppLoading() {
+  return <div className="app-loading" role="status"><span className="loading-mark" /> Loading Radar…</div>;
+}
+
 function Protected({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="center-screen">Loading...</div>;
+  if (loading) return <AppLoading />;
   return user ? children : <Navigate to="/login" replace />;
 }
 
 function Home() {
   const { user, loading } = useAuth();
-  if (loading) return <div className="center-screen">Loading...</div>;
+  if (loading) return <AppLoading />;
   return user ? <Layout><Overview /></Layout> : <Landing />;
 }
 
 function GuestOnly({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return <div className="center-screen">Loading...</div>;
+  if (loading) return <AppLoading />;
   return user ? <Navigate to="/" replace /> : children;
 }
 

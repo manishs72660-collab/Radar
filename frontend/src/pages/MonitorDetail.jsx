@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Trash2, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Trash2, RefreshCw, Pencil, AlertTriangle } from 'lucide-react';
 import api, { errorMessage } from '../api';
 import { useToast } from '../toast';
 import StatusPill from '../components/StatusPill';
@@ -11,6 +11,7 @@ import Skeleton from '../components/Skeleton';
 import TimingBreakdown from '../components/TimingBreakdown';
 import ColdStartCard from '../components/ColdStartCard';
 import SleepSchedule from '../components/SleepSchedule';
+import MonitorModal from '../components/MonitorModal';
 import { IncidentTable } from './Incidents';
 import { formatMs, formatPct, timeAgo } from '../utils';
 import { heatLevel, heatLevelColorClass } from '../chartData';
@@ -30,8 +31,12 @@ export default function MonitorDetail() {
   const [recent, setRecent] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [heatmap, setHeatmap] = useState(null);
+  const [heatmapError, setHeatmapError] = useState('');
+  const [heatmapAttempt, setHeatmapAttempt] = useState(0);
   const [checking, setChecking] = useState(false);
   const [missing, setMissing] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [showEdit, setShowEdit] = useState(false);
   const latest = useRef(0); // purana jawab naye jawab ko na dabaye
 
   const load = useCallback(async () => {
@@ -49,6 +54,7 @@ export default function MonitorDetail() {
       if (mine !== latest.current) return;
 
       setMonitor(m.data);
+      setLoadError('');
       setStats({ range, data: s.data });
       setIncidents(i.data);
       setRecent(raw.data);
@@ -59,6 +65,7 @@ export default function MonitorDetail() {
       );
     } catch (err) {
       if (mine === latest.current && err?.response?.status === 404) setMissing(true);
+      else if (mine === latest.current) setLoadError(errorMessage(err));
     }
   }, [id, range]);
 
@@ -74,15 +81,20 @@ export default function MonitorDetail() {
     const fetchHeatmap = () =>
       api
         .get(`/monitors/${id}/heatmap`)
-        .then((r) => alive && setHeatmap(r.data))
-        .catch(() => {});
+        .then((r) => {
+          if (alive) {
+            setHeatmap(r.data);
+            setHeatmapError('');
+          }
+        })
+        .catch((err) => alive && setHeatmapError(errorMessage(err)));
     fetchHeatmap();
     const t = setInterval(fetchHeatmap, 5 * 60 * 1000);
     return () => {
       alive = false;
       clearInterval(t);
     };
-  }, [id]);
+  }, [id, heatmapAttempt]);
 
   async function checkNow() {
     setChecking(true);
@@ -128,6 +140,14 @@ export default function MonitorDetail() {
     );
   }
   if (!monitor) {
+    if (loadError) {
+      return (
+        <div className="page-state page-state-error" role="alert">
+          <AlertTriangle size={20} /><div><strong>Monitor details unavailable</strong><p>{loadError}</p></div>
+          <button className="btn btn-sm" onClick={load}>Try again</button>
+        </div>
+      );
+    }
     return (
       <>
         <Skeleton height={34} width={260} style={{ marginBottom: 12 }} />
@@ -175,6 +195,7 @@ export default function MonitorDetail() {
           </p>
         </div>
         <div className="row">
+          <button className="btn" onClick={() => setShowEdit(true)}><Pencil size={15} /> Edit</button>
           <button className="btn" onClick={checkNow} disabled={checking}>
             <RefreshCw size={16} className={checking ? 'spin' : ''} /> {checking ? 'Checking...' : 'Check now'}
           </button>
@@ -184,6 +205,8 @@ export default function MonitorDetail() {
           <button className="btn btn-danger" onClick={remove}><Trash2 size={16} /> Delete</button>
         </div>
       </div>
+
+      {loadError && <div className="inline-alert" role="alert"><AlertTriangle size={16} /><span>Could not refresh monitor data: {loadError}</span><button className="text-btn" onClick={load}>Retry</button></div>}
 
       <div className="panel">
         <div className="panel-head">
@@ -252,7 +275,12 @@ export default function MonitorDetail() {
             <p className="panel-sub">One square per day (UTC). Hover for details.</p>
           </div>
         </div>
-        {heatmap ? <Heatmap days={heatmap} /> : <Skeleton height={130} radius={12} />}
+        {heatmap ? <Heatmap days={heatmap} /> : heatmapError ? (
+          <div className="empty compact-empty" role="alert">
+            <p>Uptime history could not be loaded: {heatmapError}</p>
+            <button className="btn btn-sm" onClick={() => setHeatmapAttempt((value) => value + 1)}>Retry</button>
+          </div>
+        ) : <Skeleton height={130} radius={12} />}
       </div>
 
       <ColdStartCard stats={s} />
@@ -282,7 +310,10 @@ export default function MonitorDetail() {
                       </td>
                       <td>{c.statusCode ?? '-'}</td>
                       <td>{formatMs(c.responseTime)}</td>
-                      <td title={c.error || ''}>{timeAgo(c.checkedAt)}</td>
+                      <td title={c.error || ''}>
+                        {timeAgo(c.checkedAt)}
+                        {c.status === 'DOWN' && c.error && <small className="check-error">{c.error}</small>}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -296,6 +327,7 @@ export default function MonitorDetail() {
           <IncidentTable incidents={incidents} showMonitor={false} />
         </div>
       </div>
+      {showEdit && <MonitorModal monitor={monitor} onClose={() => setShowEdit(false)} onSaved={load} />}
     </>
   );
 }

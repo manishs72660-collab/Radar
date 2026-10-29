@@ -2,11 +2,11 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { formatDateTime, formatMs } from '../utils';
 
 const STEPS = [
-  { key: 'dns', label: 'DNS lookup', color: '#7aa2ff', hint: 'Finding the server address' },
-  { key: 'tcp', label: 'Connection', color: '#b794f6', hint: 'Reaching the server' },
-  { key: 'tls', label: 'HTTPS handshake', color: '#3dd6a5', hint: 'Setting up a secure link' },
-  { key: 'ttfb', label: 'Server response', color: '#f5b042', hint: 'Your app and database thinking' },
-  { key: 'download', label: 'Download', color: '#ff8fab', hint: 'Sending the page back' },
+  { key: 'dns', label: 'DNS lookup', color: '#8ab3ff', hint: 'Finding the server address' },
+  { key: 'tcp', label: 'Connection', color: '#ac92e8', hint: 'Reaching the server' },
+  { key: 'tls', label: 'HTTPS handshake', color: '#6fce91', hint: 'Setting up a secure link' },
+  { key: 'ttfb', label: 'Server response', color: '#e3b45e', hint: 'Your app and database thinking' },
+  { key: 'download', label: 'Download', color: '#d983ac', hint: 'Sending the page back' },
 ];
 
 // Simple rules jo bataate hain ki slowness kahan hai
@@ -31,8 +31,8 @@ function diagnose(t) {
 function Tip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: '#1b2338', border: '1px solid #34415f', borderRadius: 10, padding: '8px 12px', fontSize: 13 }}>
-      <div style={{ color: '#8c97b5', marginBottom: 4 }}>{formatDateTime(label)}</div>
+    <div style={{ background: '#1b201c', border: '1px solid #48504a', borderRadius: 6, padding: '8px 12px', fontSize: 12 }}>
+      <div style={{ color: '#9aa39c', marginBottom: 4 }}>{formatDateTime(label)}</div>
       {[...payload].reverse().map((p) => (
         <div key={p.dataKey} style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
           <span style={{ color: p.color }}>{STEPS.find((s) => s.key === p.dataKey)?.label}</span>

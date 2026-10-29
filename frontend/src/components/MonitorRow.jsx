@@ -1,33 +1,31 @@
 import { Link } from 'react-router-dom';
-import { StatusDot } from './StatusPill';
+import StatusPill from './StatusPill';
 import UptimeBar from './UptimeBar';
-import Sparkline from './Sparkline';
-import { formatMs, formatPct, hostOf } from '../utils';
+import { formatMs, formatPct, hostOf, timeAgo } from '../utils';
 
 export default function MonitorRow({ m }) {
+  const status = !m.isActive ? 'Paused' : m.currentStatus === 'UP' ? 'Operational' : m.currentStatus === 'DOWN' ? 'Down' : 'Waiting';
   return (
-    <Link to={`/monitors/${m._id}`} className="mon-row">
-      <div className="mon-name">
-        <StatusDot status={m.currentStatus} paused={!m.isActive} />
-        <div style={{ minWidth: 0 }}>
+    <tr>
+      <td className="monitor-cell">
+        <Link to={`/monitors/${m._id}`} className="monitor-link">
           <strong>{m.name}</strong>
-          <span className="sub">{hostOf(m.url)}</span>
-        </div>
-      </div>
-      <div className="hide-sm">
+          <span>{hostOf(m.url)}</span>
+        </Link>
+        <div className="monitor-status-inline"><StatusPill status={m.currentStatus} paused={!m.isActive} /></div>
+      </td>
+      <td className="monitor-history">
         <UptimeBar history={m.history} />
-      </div>
-      <div className="hide-md hide-sm">
-        <Sparkline values={m.spark} />
-      </div>
-      <div className="num hide-md hide-sm">
-        {formatMs(m.avgResponse)}
-        <small>avg</small>
-      </div>
-      <div className="num">
-        {formatPct(m.uptime24h)}
-        <small>24h</small>
-      </div>
-    </Link>
+        <span className="sr-only">{status}</span>
+      </td>
+      <td className="response-cell">
+        <strong>{formatMs(m.lastResponse)}</strong>
+        <small>avg {formatMs(m.avgResponse)}</small>
+      </td>
+      <td className="mono-cell">{formatPct(m.uptime24h)}</td>
+      <td className="last-checked-cell" title={m.lastCheckedAt ? new Date(m.lastCheckedAt).toLocaleString() : 'No checks yet'}>
+        {timeAgo(m.lastCheckedAt)}
+      </td>
+    </tr>
   );
 }

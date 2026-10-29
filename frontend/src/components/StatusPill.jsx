@@ -1,6 +1,6 @@
 export default function StatusPill({ status, paused }) {
   if (paused) return <span className="pill">Paused</span>;
-  const map = { UP: ['up', 'Up'], DOWN: ['down', 'Down'], PENDING: ['', 'Waiting'] };
+  const map = { UP: ['up', 'Operational'], DOWN: ['down', 'Down'], PENDING: ['', 'Waiting'] };
   const [cls, label] = map[status] || ['', status];
   return <span className={`pill ${cls}`}>{label}</span>;
 }

@@ -4,9 +4,14 @@ import { useToast } from '../toast';
 
 const INTERVALS = [1, 5, 10, 15, 30, 60];
 
-export default function MonitorModal({ onClose, onSaved }) {
+export default function MonitorModal({ onClose, onSaved, monitor = null }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: '', url: 'https://', intervalMinutes: 5, expectedStatus: 200 });
+  const [form, setForm] = useState(monitor ? {
+    name: monitor.name,
+    url: monitor.url,
+    intervalMinutes: monitor.intervalMinutes,
+    expectedStatus: monitor.expectedStatus,
+  } : { name: '', url: 'https://', intervalMinutes: 5, expectedStatus: 200 });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -17,13 +22,15 @@ export default function MonitorModal({ onClose, onSaved }) {
     setError('');
     setSaving(true);
     try {
-      await api.post('/monitors', {
+      const payload = {
         name: form.name.trim(),
         url: form.url.trim(),
         intervalMinutes: Number(form.intervalMinutes),
         expectedStatus: Number(form.expectedStatus),
-      });
-      toast('Monitor added');
+      };
+      if (monitor) await api.patch(`/monitors/${monitor._id}`, payload);
+      else await api.post('/monitors', payload);
+      toast(monitor ? 'Monitor updated' : 'Monitor added');
       onSaved();
       onClose();
     } catch (err) {
@@ -35,9 +42,9 @@ export default function MonitorModal({ onClose, onSaved }) {
 
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" onSubmit={submit} role="dialog" aria-modal="true" aria-label="Add monitor">
-        <h2>Add monitor</h2>
-        <p className="panel-sub" style={{ marginBottom: 20 }}>Radar will check this URL on a schedule and tell you when it fails.</p>
+      <form className="modal" onSubmit={submit} role="dialog" aria-modal="true" aria-label={monitor ? 'Edit monitor' : 'Add monitor'}>
+        <h2>{monitor ? 'Edit monitor' : 'Add monitor'}</h2>
+        <p className="panel-sub" style={{ marginBottom: 20 }}>{monitor ? 'Update this endpoint’s monitoring settings.' : 'Radar will check this URL on a schedule and tell you when it fails.'}</p>
 
         <div className="field">
           <label htmlFor="m-name">Name</label>
@@ -65,7 +72,7 @@ export default function MonitorModal({ onClose, onSaved }) {
         {error && <p className="error-text">{error}</p>}
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" disabled={saving}>{saving ? 'Adding...' : 'Add monitor'}</button>
+          <button className="btn btn-primary" disabled={saving}>{saving ? 'Saving...' : monitor ? 'Save changes' : 'Add monitor'}</button>
         </div>
       </form>
     </div>

@@ -9,12 +9,16 @@ function StatusPageSection() {
   const [saved, setSaved] = useState(null);
   const [ready, setReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
   const [form, setForm] = useState({ slug: '', title: '', description: '', monitorIds: [], isPublic: true });
 
   useEffect(() => {
+    setReady(false);
     Promise.all([api.get('/monitors'), api.get('/status-page')])
       .then(([m, p]) => {
         setMonitors(m.data);
+        setLoadError('');
         if (p.data) {
           setSaved(p.data);
           setForm({
@@ -26,9 +30,9 @@ function StatusPageSection() {
           });
         }
       })
-      .catch((err) => toast(errorMessage(err), 'err'))
+      .catch((err) => setLoadError(errorMessage(err)))
       .finally(() => setReady(true));
-  }, []);
+  }, [attempt]);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
@@ -64,7 +68,15 @@ function StatusPageSection() {
     }
   }
 
-  if (!ready) return null;
+  if (!ready) return <div className="settings-loading">Loading status page settings…</div>;
+  if (loadError) {
+    return (
+      <div className="panel settings-state" role="alert">
+        <p className="error-text">{loadError}</p>
+        <button className="btn btn-sm" onClick={() => { setLoadError(''); setAttempt((value) => value + 1); }}>Try again</button>
+      </div>
+    );
+  }
 
   return (
     <div className="panel" style={{ maxWidth: 680, marginBottom: 20 }}>
@@ -139,6 +151,8 @@ function TelegramSection() {
   const [chatId, setChatId] = useState('');
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     api
@@ -146,9 +160,10 @@ function TelegramSection() {
       .then((r) => {
         setSettings(r.data);
         setChatId(r.data.telegramChatId || '');
+        setLoadError('');
       })
-      .catch((err) => toast(errorMessage(err), 'err'));
-  }, []);
+      .catch((err) => setLoadError(errorMessage(err)));
+  }, [attempt]);
 
   async function save(e) {
     e.preventDefault();
@@ -187,7 +202,13 @@ function TelegramSection() {
     }
   }
 
-  if (!settings) return null;
+  if (!settings) {
+    return (
+      <div className="panel settings-state" role={loadError ? 'alert' : 'status'}>
+        {loadError ? <><p className="error-text">{loadError}</p><button className="btn btn-sm" onClick={() => { setLoadError(''); setAttempt((value) => value + 1); }}>Try again</button></> : <p className="settings-loading">Loading Telegram settings…</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="panel" style={{ maxWidth: 680 }}>

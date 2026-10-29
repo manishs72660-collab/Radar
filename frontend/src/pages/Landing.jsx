@@ -1,7 +1,8 @@
-import { Activity, ArrowUpRight, BellRing, Clock3 } from 'lucide-react';
+import { Activity, ArrowUpRight, BellRing, Clock3, Globe2, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
-import RadarIllustration from '../components/RadarIllustration';
+import DashboardMockup from '../components/DashboardMockup';
+import './landing.css';
 
 const features = [
   {
@@ -12,84 +13,96 @@ const features = [
   {
     icon: BellRing,
     title: 'Catch incidents early',
-    description: 'Spot downtime and keep track of incidents before users report them.',
+    description: 'Spot downtime and keep a record of every incident before users report it.',
   },
   {
     icon: Clock3,
     title: 'Understand slowdowns',
-    description: 'Review response trends and see when hosted apps take time to wake up.',
+    description: 'Review response-time trends and check history to investigate slow or cold starts.',
+  },
+  {
+    icon: Globe2,
+    title: 'Share service status',
+    description: 'Publish a status page with uptime history and incident updates for your users.',
+  },
+  {
+    icon: Send,
+    title: 'Get Telegram alerts',
+    description: 'Connect Telegram to receive notifications when a service goes down or recovers.',
   },
 ];
 
 export default function Landing() {
   return (
-    <div className="landing">
-      <header className="landing-header">
-        <Link className="brand landing-brand" to="/" aria-label="Radar home">
-          <Logo size={34} />
+    <div className="lp">
+      <header className="lp-header">
+        <Link className="brand" to="/" aria-label="Radar home">
+          <Logo size={30} />
           Radar
         </Link>
-        <nav className="landing-actions" aria-label="Account">
+        <nav className="lp-actions" aria-label="Account">
+          <a className="lp-feature-link" href="#features">Features</a>
           <Link className="btn" to="/login">Log in</Link>
           <Link className="btn btn-primary" to="/register">Sign up <ArrowUpRight size={16} /></Link>
         </nav>
       </header>
 
       <main>
-        <section className="landing-hero">
-          <div className="landing-copy">
-            <div className="landing-eyebrow"><span /> WEBSITE &amp; API MONITORING</div>
+        <section className="lp-hero">
+          <div className="lp-copy">
+            <div className="landing-eyebrow"> WEBSITE &amp; API MONITORING</div>
             <h1>Know when your site slows down — or goes offline.</h1>
             <p>
-              Radar keeps an eye on your hosted apps, tracks uptime and response times,
-              and helps you spot incidents before your users do.
+              Monitor uptime and response times, investigate check history, and get alerted when an endpoint fails.
+              Radar brings service health and incident context into one clear view.
             </p>
-            <div className="landing-hero-actions">
+            <div className="lp-cta">
               <Link className="btn btn-primary" to="/register">
                 Get started <ArrowUpRight size={17} />
               </Link>
-              <Link className="landing-login-link" to="/login">Already have an account? Log in</Link>
-            </div>
-            <div className="landing-proof">
-              <span><i /> Live monitoring</span>
-              <span><i /> Clear incident history</span>
+              <Link className="lp-login" to="/login">Already have an account? Log in</Link>
             </div>
           </div>
-
-          <div className="landing-visual">
-            <div className="landing-visual-head">
-              <span className="landing-visual-brand"><Logo size={25} /> Radar</span>
-              <span className="landing-preview-label"><i /> MONITORING PREVIEW</span>
-            </div>
-            <RadarIllustration />
-            <div className="landing-visual-copy">
-              <h2>Know when your site is slow, not just when it is down.</h2>
-              <p>A clear view of uptime, response times, and incidents.</p>
-            </div>
-          </div>
+          <DashboardMockup />
         </section>
 
-        <section className="landing-features" aria-label="Radar features">
+        <section className="lp-stats" aria-label="Radar capabilities">
+          <div><b>HTTP</b><span>website and API checks</span></div>
+          <div><b>History</b><span>uptime and response trends</span></div>
+          <div><b>Status</b><span>public status pages</span></div>
+        </section>
+
+        <section className="lp-features" id="features" aria-label="Features">
           <div className="landing-features-heading">
             <span>BUILT FOR YOUR SERVICES</span>
             <h2>Everything important, in one view.</h2>
           </div>
-          <div className="landing-feature-grid">
+          <div className="lp-feature-grid">
             {features.map(({ icon: Icon, title, description }) => (
-              <article className="landing-feature" key={title}>
-                <div className="landing-feature-icon"><Icon size={19} /></div>
+              <article key={title}>
+                <Icon size={20} />
                 <h3>{title}</h3>
                 <p>{description}</p>
               </article>
             ))}
           </div>
         </section>
+
+        <section className="lp-final">
+          <h2>Get a clearer view of your service health.</h2>
+          <Link className="btn btn-primary" to="/register">
+            Create an account <ArrowUpRight size={17} />
+          </Link>
+        </section>
       </main>
 
-      <footer className="landing-footer">
-        <Link className="brand landing-brand" to="/">
-          <Logo size={22} /> Radar
-        </Link>
+      <footer className="lp-footer">
+        <Link className="brand" to="/"><Logo size={22} /> Radar</Link>
+        <nav aria-label="Footer">
+          <a href="#features">Features</a>
+          <Link to="/login">Log in</Link>
+          <Link to="/register">Get started</Link>
+        </nav>
         <span>Keep an eye on what matters.</span>
       </footer>
     </div>

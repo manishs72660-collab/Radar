@@ -2,7 +2,7 @@ import { Area, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine,
 import { dayTicks, prepareChartData } from '../chartData';
 import { formatDateTime, formatMs } from '../utils';
 
-const C = { line: '#f5b042', down: '#ff6b6b', cold: '#b794f6', grid: '#26304a', axis: '#5a6585', avg: '#8c97b5' };
+const C = { line: '#b5ec68', down: '#ef737d', cold: '#aa98e8', grid: '#292e2b', axis: '#87918a', avg: '#717c74' };
 
 function axisLabel(range, t) {
   const d = new Date(t);
@@ -14,10 +14,10 @@ function axisLabel(range, t) {
 function Tip({ active, payload, kind }) {
   if (!active || !payload || !payload.length) return null;
   const d = payload[0].payload;
-  const box = { background: '#1b2338', border: '1px solid #34415f', borderRadius: 10, padding: '9px 12px', fontSize: 13, minWidth: 160 };
+  const box = { background: '#1b201c', border: '1px solid #48504a', borderRadius: 6, padding: '9px 12px', fontSize: 12, minWidth: 160 };
   const row = (label, value, color) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14 }}>
-      <span style={{ color: color || '#8c97b5' }}>{label}</span>
+      <span style={{ color: color || '#9aa39c' }}>{label}</span>
       <b>{value}</b>
     </div>
   );
@@ -27,7 +27,7 @@ function Tip({ active, payload, kind }) {
     const when = `${formatDateTime(d.t)} - ${end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     return (
       <div style={box}>
-        <div style={{ color: '#8c97b5', marginBottom: 4 }}>{when}</div>
+        <div style={{ color: '#9aa39c', marginBottom: 4 }}>{when}</div>
         {row('Average', formatMs(d.value))}
         {row('Fastest', formatMs(d.min))}
         {row('Slowest', formatMs(d.max))}
@@ -40,7 +40,7 @@ function Tip({ active, payload, kind }) {
 
   return (
     <div style={box}>
-      <div style={{ color: '#8c97b5', marginBottom: 4 }}>{formatDateTime(d.t)}</div>
+      <div style={{ color: '#9aa39c', marginBottom: 4 }}>{formatDateTime(d.t)}</div>
       {d.down ? row('Failed', d.error || 'No response', C.down) : row(d.cold ? 'Cold start' : 'Response', formatMs(d.value), d.cold ? C.cold : undefined)}
       {d.code ? row('Status', d.code) : null}
     </div>
